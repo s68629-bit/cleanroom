@@ -2,11 +2,11 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v3.3                                  ║
+  ║  Version : v3.4                                  ║
   ║  Date    : 2026-04-20                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 管制圖分頁（紀錄表+折線圖+tooltip備註）            ║
+  ║  Changes : 管制圖下載功能、下拉選單加樓層名稱            ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -392,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.3 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.4 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -559,15 +559,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     </select>
   </div>
 
-  <!-- 上限值設定 -->
-  <div style="padding:8px 16px 0;display:flex;gap:8px;align-items:center">
+  <!-- 上限值設定 + 下載按鈕 -->
+  <div style="padding:8px 16px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <div style="font-size:12px;color:var(--txt2)">0.5μm 上限：</div>
     <input type="number" id="chartLimit05" value="10000"
       oninput="this.dataset.userSet='1'"
       style="width:90px;background:var(--white);border:2px solid var(--border);border-radius:6px;
       padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--txt);outline:none"
       onchange="renderChart()">
-    <div style="font-size:12px;color:var(--txt2);margin-left:8px">5μm 上限：</div>
+    <div style="font-size:12px;color:var(--txt2);margin-left:4px">5μm 上限：</div>
     <input type="number" id="chartLimit50" value="70"
       oninput="this.dataset.userSet='1'"
       style="width:70px;background:var(--white);border:2px solid var(--border);border-radius:6px;
@@ -576,6 +576,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <button onclick="renderChart()"
       style="padding:5px 12px;background:var(--acc);color:#fff;border:none;border-radius:6px;
       font-size:12px;cursor:pointer;font-family:var(--sans)">套用</button>
+    <div style="flex:1"></div>
+    <!-- 下載按鈕 -->
+    <button onclick="downloadYearXlsx()"
+      style="padding:5px 12px;background:var(--grn);color:#fff;border:none;border-radius:6px;
+      font-size:12px;cursor:pointer;font-family:var(--sans);font-weight:600">
+      📥 年度 xlsx
+    </button>
+    <button onclick="downloadFilteredCsv()"
+      style="padding:5px 12px;background:var(--bg);color:var(--txt2);border:2px solid var(--border);
+      border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--sans)">
+      📄 篩選 CSV
+    </button>
   </div>
 
   <!-- 圖表內容區 -->
@@ -2235,9 +2247,16 @@ function initChartPage() {
   // 初始化區域選單
   const sel = document.getElementById('chartZoneKey');
   if (sel && sel.options.length <= 1) {
-    const zones = Object.values(config.zones || {}).flat();
-    sel.innerHTML = zones.map(z =>
-      `<option value="${z.key}" ${z.key.includes('100K') && z.key.startsWith('2F') ? 'selected' : ''}>${z.name}</option>`
+    // 加入樓層名稱，讓選單更清楚
+    const floorMap = {};
+    (config.floors || []).forEach(f => { floorMap[f.id] = f.name; });
+    const allZones = [];
+    Object.entries(config.zones || {}).forEach(([fid, zlist]) => {
+      const floorName = floorMap[fid] || fid;
+      (zlist || []).forEach(z => allZones.push({ ...z, floorName }));
+    });
+    sel.innerHTML = allZones.map(z =>
+      `<option value="${z.key}" ${z.key.includes('100K') && z.key.startsWith('2F') ? 'selected' : ''}>${z.floorName} - ${z.name}</option>`
     ).join('');
   }
   updateChartLimits();
@@ -2494,6 +2513,121 @@ function buildSingleChart(title, dates, points, matrix, valKey, limit, color) {
       超標以紅色標示，有備註的數值右上角顯示 ●，移入可查看備註內容
     </div>
   </div>`;
+}
+
+// ── 下載年度 xlsx（從 GAS 匯出管制表）──
+async function downloadYearXlsx() {
+  const zoneKey = document.getElementById('chartZoneKey')?.value;
+  if (!zoneKey) { toast('請先選擇區域', true); return; }
+
+  const year = new Date().getFullYear();
+  const date = year + '-01-01';  // 代入年份，GAS 用年份取工作表
+
+  toast('⏳ 準備下載，請稍候...');
+  try {
+    const r = await fetch(getGasUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'download', zoneKey, date })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || '下載失敗');
+
+    // Base64 解碼並下載
+    const byteStr = atob(result.data);
+    const bytes = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([bytes], { type: result.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = result.filename || ('EN001-F01-2_' + zoneKey + '_' + year + '.xlsx');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('✅ 下載完成：' + a.download);
+  } catch(e) {
+    toast('❌ 下載失敗：' + e.message, true);
+  }
+}
+
+// ── 下載篩選資料 CSV ──
+function downloadFilteredCsv() {
+  const zoneKey = document.getElementById('chartZoneKey')?.value;
+  if (!zoneKey || !chartData.length) { toast('目前無資料可下載', true); return; }
+
+  const limit05 = Number(document.getElementById('chartLimit05')?.value) || 10000;
+  const limit50 = Number(document.getElementById('chartLimit50')?.value) || 70;
+
+  // 整理所有日期和測點
+  const allDates = [...new Set(chartData.map(g => g.date))].sort();
+  const allPoints = [...new Set(chartData.flatMap(g => g.points.map(p => p.label)))];
+
+  const matrix = {};
+  chartData.forEach(g => {
+    if (!matrix[g.date]) matrix[g.date] = {};
+    g.points.forEach(p => {
+      matrix[g.date][p.label] = { v05: p.v05, v50: p.v50, remark: p.remark || '' };
+    });
+  });
+
+  // 產生 CSV
+  const bom = '﻿';
+  const rows = [];
+
+  // 0.5μm 區塊
+  rows.push([`■ 0.5 μm 管制記錄`, '', `上限：${limit05}`, '']);
+  rows.push(['測點', ...allDates.map(d => d.slice(5)), '']);
+  allPoints.forEach(pt => {
+    rows.push([pt, ...allDates.map(d => {
+      const v = matrix[d]?.[pt]?.v05;
+      return v !== null && v !== undefined && v !== '' ? v : '';
+    }), '']);
+  });
+  rows.push([]);
+
+  // 5μm 區塊
+  rows.push([`■ 5 μm 管制記錄`, '', `上限：${limit50}`, '']);
+  rows.push(['測點', ...allDates.map(d => d.slice(5)), '']);
+  allPoints.forEach(pt => {
+    rows.push([pt, ...allDates.map(d => {
+      const v = matrix[d]?.[pt]?.v50;
+      return v !== null && v !== undefined && v !== '' ? v : '';
+    }), '']);
+  });
+  rows.push([]);
+
+  // 備註區塊
+  const hasRemark = chartData.some(g => g.points.some(p => p.remark));
+  if (hasRemark) {
+    rows.push(['■ 備註記錄', '']);
+    rows.push(['日期', '測點', '備註']);
+    chartData.forEach(g => {
+      g.points.forEach(p => {
+        if (p.remark) rows.push([g.date, p.label, p.remark]);
+      });
+    });
+  }
+
+  const csv = bom + rows.map(r =>
+    r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')
+  ).join('
+');
+
+  const range = document.getElementById('chartRange')?.value || 'month';
+  const rangeLabel = { month:'本月', last3:'近3個月', quarter:'本季' }[range] || range;
+  const filename = `管制記錄_${zoneKey}_${rangeLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ CSV 下載完成');
 }
 
 // Tooltip 功能
