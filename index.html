@@ -2,11 +2,11 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v2.9                                  ║
+  ║  Version : v3.0                                  ║
   ║  Date    : 2026-04-20                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 首頁日期選擇、多人員下拉選單            ║
+  ║  Changes : 人員名單改從GAS後端讀取，跨裝置同步            ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -392,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.9 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.0 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -919,8 +919,12 @@ function getMeasureDate() {
   return measureDate || new Date().toISOString().split('T')[0];
 }
 
-// ── 量測人員清單 ──
+// ── 量測人員清單（從 GAS 後端讀取，跨裝置同步）──
+let operatorList = [];  // 快取從 GAS 讀取的名單
+
 function getOperatorList() {
+  // 優先用 GAS 快取，fallback 用 localStorage
+  if (operatorList.length > 0) return operatorList;
   const raw = getCfg('operator') || '';
   return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
@@ -934,8 +938,10 @@ function initOperatorSelect() {
     list.map(name =>
       `<option value="${name}" ${name === current ? 'selected' : ''}>${name}</option>`
     ).join('');
-  if (!current && list.length > 0) {
-    // 預設選第一位
+  // 如果之前有選，還原選擇
+  if (current && list.includes(current)) {
+    sel.value = current;
+  } else if (list.length > 0) {
     sel.value = list[0];
     localStorage.setItem('cr_currentOperator', list[0]);
   }
@@ -946,16 +952,70 @@ function onOperatorChange(val) {
 }
 
 function getCurrentOperator() {
+  const sel = document.getElementById('operatorSelect');
+  if (sel && sel.value) return sel.value;
   return localStorage.getItem('cr_currentOperator') ||
-         getCfg('operator').split(',')[0].trim() ||
-         '廠務';
+         getOperatorList()[0] || '廠務';
 }
 
-function saveOperators() {
+// 從 GAS 讀取人員名單
+async function loadOperatorsFromGAS() {
+  const gasUrl = getGasUrl();
+  if (!gasUrl) return;
+  try {
+    const r = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getSettings' })
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.ok && data.settings && data.settings.operators) {
+      const list = data.settings.operators.split(',').map(s => s.trim()).filter(Boolean);
+      if (list.length > 0) {
+        operatorList = list;
+        // 同時存到 localStorage 當快取
+        setCfg('operator', data.settings.operators);
+        initOperatorSelect();
+      }
+    }
+  } catch(e) {
+    // 靜默失敗，用 localStorage 的名單
+  }
+}
+
+// 儲存人員名單到 GAS + localStorage
+async function saveOperators() {
   const val = document.getElementById('cfgOperator').value.trim();
+
+  // 先存到 localStorage
   setCfg('operator', val);
-  showSaveStatus('st-operator');
-  initOperatorSelect(); // 重新載入下拉選單
+  operatorList = val.split(',').map(s => s.trim()).filter(Boolean);
+  initOperatorSelect();
+
+  // 再存到 GAS
+  const gasUrl = getGasUrl();
+  if (gasUrl) {
+    try {
+      const r = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'saveSettings', key: 'operators', value: val })
+      });
+      const result = await r.json();
+      if (result.ok) {
+        toast('✅ 人員名單已同步到雲端');
+      } else {
+        toast('⚠️ 已存本機，雲端同步失敗', true);
+      }
+    } catch(e) {
+      toast('⚠️ 已存本機，雲端同步失敗', true);
+    }
+  }
+
+  // 顯示已儲存提示
+  const st = document.getElementById('st-operator');
+  if (st) { st.style.display='block'; setTimeout(()=>st.style.display='none', 2000); }
 }
 
 // ══════════════════════════════════════════════════════
@@ -973,6 +1033,9 @@ window.addEventListener('load', async ()=>{
 
   // 直接靜默載入 config，不顯示 loading 畫面
   await syncConfig(true);
+
+  // 從 GAS 讀取人員名單（背景執行）
+  loadOperatorsFromGAS();
 });
 
 async function syncConfig(silent=false){
