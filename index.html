@@ -450,17 +450,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
 
 <!-- ══ PAGE: SETTINGS ══ -->
 <div class="page" id="page-settings">
-  <div class="sec-hd">系統設定</div>
+  <div class="sec-hd" id="lbl-settingsTitle">系統設定</div>
   <div class="settings-card">
 
     <div class="setting-row">
       <div class="setting-icon">🔑</div>
       <div class="setting-info" style="flex:1">
-        <div class="setting-label">Claude API Key</div>
-        <div class="setting-desc">⚠️ 一般使用者<b>不需要填寫</b>，AI 辨識已由 GAS 後端代理處理。<br>僅管理員備用（GAS 失效時使用）。</div>
+        <div class="setting-label" id="lbl-apiKeyLabel">Claude API Key</div>
+        <div class="setting-desc" id="lbl-apiKeyDesc">⚠️ 一般使用者<b>不需要填寫</b>，AI 辨識已由 GAS 後端代理處理。<br>僅管理員備用（GAS 失效時使用）。</div>
         <input class="setting-inp" id="cfgApiKey" type="password" placeholder="（選填）sk-ant-api03-...">
         <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-          <button class="setting-save" onclick="saveSetting('apiKey')">儲存</button>
+          <button class="setting-save" onclick="saveSetting('apiKey')" id="lbl-savBtn1">儲存</button>
           <button class="setting-save" style="background:var(--bg2);border-color:var(--border);color:var(--txt2)"
             onclick="toggleShowKey()">👁</button>
         </div>
@@ -471,11 +471,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div class="setting-row">
       <div class="setting-icon">🔗</div>
       <div class="setting-info" style="flex:1">
-        <div class="setting-label">GAS 後端網址</div>
-        <div class="setting-desc">Google Apps Script 部署網址</div>
-        <input class="setting-inp" id="cfgGasUrl" type="url" placeholder="https://script.google.com/macros/s/...">
+        <div class="setting-label" id="lbl-gasLabel">GAS 後端網址</div>
+        <div class="setting-desc" id="lbl-gasDesc">已內建預設網址，一般使用者<b>不需要填寫</b>。<br>管理員可在此覆蓋（留空則使用內建網址）。</div>
+        <input class="setting-inp" id="cfgGasUrl" type="url" placeholder="（選填）留空使用預設網址">
         <div style="margin-top:6px">
-          <button class="setting-save" onclick="saveSetting('gasUrl')">儲存</button>
+          <button class="setting-save" onclick="saveSetting('gasUrl')" id="lbl-savBtn2">儲存</button>
         </div>
         <div class="setting-status" id="st-gasUrl">✅ 已儲存</div>
       </div>
@@ -484,11 +484,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div class="setting-row">
       <div class="setting-icon">🌐</div>
       <div class="setting-info" style="flex:1">
-        <div class="setting-label">設定檔來源網址</div>
-        <div class="setting-desc">all_config.json 的完整 URL（留空則讀取同目錄）</div>
+        <div class="setting-label" id="lbl-configLabel">設定檔來源網址</div>
+        <div class="setting-desc" id="lbl-configDesc">all_config.json 的完整 URL（留空則讀取同目錄）</div>
         <input class="setting-inp" id="cfgConfigUrl" placeholder="留空自動使用 ./all_config.json">
         <div style="margin-top:6px">
-          <button class="setting-save" onclick="saveSetting('configUrl')">儲存</button>
+          <button class="setting-save" onclick="saveSetting('configUrl')" id="lbl-savBtn3">儲存</button>
           <button class="setting-save" style="margin-left:6px;background:var(--acc2);border-color:var(--acc2);color:#fff"
             onclick="syncConfig()">立即重載</button>
         </div>
@@ -499,11 +499,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div class="setting-row">
       <div class="setting-icon">👤</div>
       <div class="setting-info" style="flex:1">
-        <div class="setting-label">量測人員姓名</div>
+        <div class="setting-label" id="lbl-operatorLabel">量測人員姓名</div>
         <div class="setting-desc">記錄於 Excel 表格「製表人」欄位</div>
         <input class="setting-inp" id="cfgOperator" placeholder="請輸入姓名">
         <div style="margin-top:6px">
-          <button class="setting-save" onclick="saveSetting('operator')">儲存</button>
+          <button class="setting-save" onclick="saveSetting('operator')" id="lbl-savBtn4">儲存</button>
         </div>
         <div class="setting-status" id="st-operator">✅ 已儲存</div>
       </div>
@@ -511,7 +511,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
 
   </div>
 
-  <div class="sec-hd" style="margin-top:8px">版本資訊</div>
+  <div class="sec-hd" style="margin-top:8px" id="lbl-versionTitle">版本資訊</div>
   <div class="settings-card">
     <div class="setting-row">
       <div class="setting-icon">📱</div>
@@ -528,9 +528,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
 <div class="sheet-overlay" id="measureSheet">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">
-      <div id="sheetPtName">量測點位</div>
-      <div class="sheet-sub" id="sheetZoneName"></div>
+    <div class="sheet-title" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div id="sheetPtName">量測點位</div>
+        <div class="sheet-sub" id="sheetZoneName"></div>
+      </div>
+      <button id="sheetDeleteBtn" onclick="deleteCurrentPoint()"
+        style="display:none;padding:5px 12px;border-radius:6px;border:1.5px solid var(--red);
+        background:#fff0f0;color:var(--red);font-size:12px;cursor:pointer;
+        font-family:var(--sans);margin-top:2px;flex-shrink:0">
+        🗑️ 刪除
+      </button>
     </div>
     <div class="sheet-body">
       <div class="method-row">
@@ -594,14 +602,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div class="sheet-body">
 
       <!-- Recipients -->
-      <div style="font-size:10px;color:var(--txt2);font-weight:600;letter-spacing:1px;margin-bottom:8px">收件人</div>
+      <div style="font-size:10px;color:var(--txt2);font-weight:600;letter-spacing:1px;margin-bottom:8px" id="lbl-recipient">收件人</div>
       <div class="recipient-list" id="recipList">
         <!-- generated -->
       </div>
 
       <!-- Attachment -->
       <div class="attach-section">
-        <div class="attach-hd">附件範圍</div>
+        <div class="attach-hd" id="lbl-attachRange">附件範圍</div>
         <div class="attach-opts">
           <div class="attach-opt selected" id="att-current" onclick="selectAttach('current')">
             <div class="attach-opt-icon">📄</div>
@@ -610,12 +618,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
           </div>
           <div class="attach-opt" id="att-select" onclick="selectAttach('select')">
             <div class="attach-opt-icon">📑</div>
-            <div class="attach-opt-label">選擇多個區域</div>
+            <div class="attach-opt-label" id="lbl-attSelect">選擇多個區域</div>
             <div class="attach-opt-radio"></div>
           </div>
           <div class="attach-opt" id="att-all" onclick="selectAttach('all')">
             <div class="attach-opt-icon">🗜️</div>
-            <div class="attach-opt-label">全部區域 ZIP</div>
+            <div class="attach-opt-label" id="lbl-attAll">全部區域 ZIP</div>
             <div class="attach-opt-radio"></div>
           </div>
         </div>
@@ -666,41 +674,161 @@ const LS = {
   allRec:    'cr_allRecords',
 };
 
+// ✅ GAS 後端網址（固定，不需要每人設定）
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzOVdq-evRVkBycxTn2NvPTImE-zjGHj-NbBd_4jBLFHMMNXyfr7NRS1RUH0awC3shbnQ/exec';
+
+// 取得 GAS 網址：優先用設定頁填的（管理員可覆蓋），否則用預設
+function getGasUrl() {
+  return getGasUrl() || GAS_URL;
+}
+
 // ══════════════════════════════════════════════════════
 // I18N
 // ══════════════════════════════════════════════════════
 const LANG = {
   zh:{
-    appTitle:'🏭 無塵室微粒子量測', selFloor:'選擇樓層', selZone:'選擇量測區域',
+    appTitle:'🏭 無塵室微粒子量測',
+    selFloor:'選擇樓層', selZone:'選擇量測區域',
     done:'已完成', total:'總點位', pct:'完成率',
-    save:'儲存記錄', mail:'寄送報表', history:'量測記錄', noRec:'尚無量測記錄',
-    cam:'拍照辨識', man:'手動輸入', shoot:'拍攝計數器螢幕',
-    aiResult:'AI 辨識結果 — 請確認', confirm:'確認送出',
+    mapHd:'點選測量點位',
+    save:'儲存記錄', mail:'寄送報表',
+    history:'量測記錄', noRec:'尚無量測記錄',
+    cam:'拍照辨識', man:'手動輸入',
+    shoot:'拍攝計數器螢幕',
+    aiResult:'AI 辨識結果 — 請確認',
+    confirm:'確認送出',
     sendReport:'寄送量測報表', sendNow:'寄出',
-    attCurrent:'當次區域 Excel', pill:'TH',
+    attCurrent:'當次區域 Excel',
+    attSelect:'選擇多個區域',
+    attAll:'全部區域 ZIP',
+    recipient:'收件人',
+    attachRange:'附件範圍',
+    measure:'量測', records:'記錄', settings:'設定',
+    settingsTitle:'系統設定',
+    versionTitle:'版本資訊',
+    apiKeyLabel:'Claude API Key',
+    apiKeyDesc:'⚠️ 一般使用者<b>不需要填寫</b>，AI 辨識已由 GAS 後端代理處理。<br>僅管理員備用（GAS 失效時使用）。',
+    gasLabel:'GAS 後端網址',
+    gasDesc:'已內建預設網址，一般使用者<b>不需要填寫</b>。<br>管理員可在此覆蓋（留空則使用內建網址）。',
+    configLabel:'設定檔來源網址',
+    configDesc:'all_config.json 的完整 URL（留空則讀取同目錄）',
+    operatorLabel:'量測人員姓名',
+    operatorDesc:'記錄於報表「製表人」欄位',
+    savBtn:'儲存', reloadBtn:'立即重載',
+    noConfig:'尚未載入設定<br>請確認 all_config.json 已部署',
+    loadingConfig:'載入點位設定...',
+    loadingImg:'載入點位圖...',
+    loadingSave:'儲存資料中...',
+    loadingSend:'寄送郵件中...',
+    toastSaved:'✅ 資料已儲存至 Google Sheets',
+    toastSendOk:'📧 郵件已寄出！',
+    toastDeleted:'🗑️ 已刪除',
+    toastNoGas:'未設定 GAS 網址，資料暫存本機',
+    toastNoRecip:'請選擇收件人',
+    pill:'TH',
   },
   th:{
-    appTitle:'🏭 ห้องสะอาด วัดอนุภาค', selFloor:'เลือกชั้น', selZone:'เลือกโซน',
-    done:'สำเร็จ', total:'จุดทั้งหมด', pct:'ความคืบหน้า',
-    save:'บันทึก', mail:'ส่งรายงาน', history:'ประวัติ', noRec:'ยังไม่มีข้อมูล',
-    cam:'ถ่ายภาพ', man:'กรอกมือ', shoot:'ถ่ายหน้าจอเครื่องวัด',
-    aiResult:'ผล AI — กรุณายืนยัน', confirm:'ยืนยัน',
-    sendReport:'ส่งรายงาน', sendNow:'ส่ง',
-    attCurrent:'Excel โซนปัจจุบัน', pill:'中',
+    appTitle:'🏭 วัดอนุภาคห้องสะอาด',
+    selFloor:'เลือกชั้น', selZone:'เลือกโซนวัด',
+    done:'สำเร็จแล้ว', total:'จุดทั้งหมด', pct:'ความสำเร็จ',
+    mapHd:'แตะจุดที่ต้องการวัด',
+    save:'บันทึกข้อมูล', mail:'ส่งรายงาน',
+    history:'ประวัติการวัด', noRec:'ยังไม่มีข้อมูล',
+    cam:'ถ่ายภาพ AI', man:'กรอกด้วยมือ',
+    shoot:'ถ่ายหน้าจอเครื่องวัดอนุภาค',
+    aiResult:'ผลจาก AI — กรุณายืนยัน',
+    confirm:'ยืนยันส่ง',
+    sendReport:'ส่งรายงานการวัด', sendNow:'ส่งเลย',
+    attCurrent:'Excel โซนปัจจุบัน',
+    attSelect:'เลือกหลายโซน',
+    attAll:'ทุกโซน (ZIP)',
+    recipient:'ผู้รับ',
+    attachRange:'ไฟล์แนบ',
+    measure:'วัด', records:'ประวัติ', settings:'ตั้งค่า',
+    settingsTitle:'การตั้งค่าระบบ',
+    versionTitle:'ข้อมูลเวอร์ชัน',
+    apiKeyLabel:'Claude API Key',
+    apiKeyDesc:'⚠️ ผู้ใช้ทั่วไป<b>ไม่ต้องกรอก</b> ระบบ AI ทำงานผ่าน GAS อัตโนมัติ<br>เฉพาะผู้ดูแลระบบเท่านั้น',
+    gasLabel:'GAS Backend URL',
+    gasDesc:'มี URL สำเร็จรูปอยู่แล้ว ผู้ใช้ทั่วไป<b>ไม่ต้องกรอก</b><br>ผู้ดูแลสามารถเปลี่ยนได้ที่นี่',
+    configLabel:'URL ไฟล์ตั้งค่า',
+    configDesc:'URL ของ all_config.json (ว่างไว้ = ใช้โฟลเดอร์เดียวกัน)',
+    operatorLabel:'ชื่อผู้วัด',
+    operatorDesc:'บันทึกในรายงาน ช่อง "ผู้จัดทำ"',
+    savBtn:'บันทึก', reloadBtn:'โหลดใหม่',
+    noConfig:'ยังไม่โหลดการตั้งค่า<br>กรุณาตรวจสอบไฟล์ all_config.json',
+    loadingConfig:'กำลังโหลดการตั้งค่า...',
+    loadingImg:'กำลังโหลดแผนที่...',
+    loadingSave:'กำลังบันทึกข้อมูล...',
+    loadingSend:'กำลังส่งอีเมล...',
+    toastSaved:'✅ บันทึกข้อมูลสำเร็จ',
+    toastSendOk:'📧 ส่งอีเมลสำเร็จ!',
+    toastDeleted:'🗑️ ลบแล้ว',
+    toastNoGas:'ยังไม่ตั้งค่า GAS บันทึกชั่วคราว',
+    toastNoRecip:'กรุณาเลือกผู้รับ',
+    pill:'中',
   }
 };
 let lang = 'zh';
 function toggleLang(){ lang = lang==='zh'?'th':'zh'; applyLang(); }
+
 function applyLang(){
   const L = LANG[lang];
-  document.getElementById('appTitle').textContent = L.appTitle;
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+  const setHtml = (id, val) => { const el=document.getElementById(id); if(el) el.innerHTML=val; };
+
+  set('appTitle', L.appTitle);
   document.getElementById('langPill').textContent = L.pill;
-  ['selFloor','selZone','done','total','pct','save','mail',
-   'history','noRec','cam','man','shoot','aiResult','confirm',
-   'sendReport','sendNow','attCurrent'].forEach(k=>{
-    const el = document.getElementById('lbl-'+k);
-    if(el) el.textContent = L[k];
-  });
+
+  // Main pages
+  set('lbl-selFloor', L.selFloor);
+  set('lbl-selZone', L.selZone);
+  set('lbl-done', L.done);
+  set('lbl-total', L.total);
+  set('lbl-pct', L.pct);
+  set('mapHd', L.mapHd);
+  set('lbl-save', L.save);
+  set('lbl-mail', L.mail);
+  set('lbl-history', L.history);
+  set('lbl-noRec', L.noRec);
+
+  // Measure sheet
+  set('lbl-cam', L.cam);
+  set('lbl-man', L.man);
+  set('lbl-shoot', L.shoot);
+  set('lbl-aiResult', L.aiResult);
+  set('lbl-confirm', L.confirm);
+
+  // Mail sheet
+  set('lbl-sendReport', L.sendReport);
+  set('lbl-sendNow', L.sendNow);
+  set('lbl-attCurrent', L.attCurrent);
+  set('lbl-attSelect', L.attSelect);
+  set('lbl-attAll', L.attAll);
+  set('lbl-recipient', L.recipient);
+  set('lbl-attachRange', L.attachRange);
+
+  // Bottom nav
+  set('navlbl-measure', L.measure);
+  set('navlbl-records', L.records);
+  set('navlbl-settings', L.settings);
+
+  // Settings page
+  set('lbl-settingsTitle', L.settingsTitle);
+  set('lbl-versionTitle', L.versionTitle);
+  set('lbl-apiKeyLabel', L.apiKeyLabel);
+  setHtml('lbl-apiKeyDesc', L.apiKeyDesc);
+  set('lbl-gasLabel', L.gasLabel);
+  setHtml('lbl-gasDesc', L.gasDesc);
+  set('lbl-configLabel', L.configLabel);
+  set('lbl-configDesc', L.configDesc);
+  set('lbl-operatorLabel', L.operatorLabel);
+  set('lbl-operatorDesc', L.operatorDesc);
+  set('lbl-savBtn1', L.savBtn);
+  set('lbl-savBtn2', L.savBtn);
+  set('lbl-savBtn3', L.savBtn);
+  set('lbl-savBtn4', L.savBtn);
+  set('lbl-reloadBtn', L.reloadBtn);
 }
 
 // ══════════════════════════════════════════════════════
@@ -735,7 +863,7 @@ window.addEventListener('load', async ()=>{
 });
 
 async function syncConfig(){
-  showLoading('載入點位設定...');
+  showLoading(LANG[lang].loadingConfig);
   try {
     const url = getCfg('configUrl') || './all_config.json';
     const resp = await fetch(url + '?t=' + Date.now());
@@ -851,7 +979,7 @@ async function selectZone(zkey){
   document.getElementById('actionRow').style.display = 'none';
 
   // Load image
-  showLoading('載入點位圖...');
+  showLoading(LANG[lang].loadingImg);
   const imgData = imageCache[zkey] || await getZoneImage(zkey);
   hideLoading();
 
@@ -868,19 +996,35 @@ async function selectZone(zkey){
     // No image — show text list fallback
     document.getElementById('mapContent').innerHTML = `
       <div style="padding:4px 0">
-        ${pts.map(p=>`
-          <div onclick="openMeasure('${p.id}')" style="display:flex;align-items:center;gap:10px;
-            padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
-            <div style="width:32px;height:32px;border-radius:50%;background:${state.records[p.id]?'var(--grn)':'var(--ylw)'};
-              display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;flex-shrink:0">
+        ${pts.map(p=>{
+          const rec = state.records[p.id];
+          return `<div style="display:flex;align-items:center;gap:10px;
+            padding:10px 0;border-bottom:1px solid var(--border)">
+            <div onclick="openMeasure('${p.id}')" style="width:32px;height:32px;border-radius:50%;
+              background:${rec?'var(--grn)':'var(--ylw)'};
+              display:flex;align-items:center;justify-content:center;font-size:11px;
+              font-weight:700;color:#000;flex-shrink:0;cursor:pointer">
               ${p.label}
             </div>
-            <div>
-              <div style="font-size:13px;font-weight:600">${p.label}</div>
-              <div style="font-size:11px;color:var(--txt2)">${p.name}</div>
+            <div onclick="openMeasure('${p.id}')" style="flex:1;cursor:pointer">
+              <div style="font-size:13px;font-weight:600">${p.label} ${p.name?'— '+p.name:''}</div>
+              ${rec?`<div style="font-size:11px;color:var(--grn)">
+                0.5μm: ${rec.v05} ／ 5.0μm: ${rec.v50}
+              </div>`:'<div style="font-size:11px;color:var(--txt3)">未量測</div>'}
             </div>
-            ${state.records[p.id]?'<div style="margin-left:auto;font-size:11px;color:var(--grn)">✓</div>':''}
-          </div>`).join('')}
+            ${rec?`
+            <button onclick="openMeasure('${p.id}')"
+              style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--acc);
+              background:var(--blue5);color:var(--acc);font-size:11px;cursor:pointer;font-family:var(--sans)">
+              ✏️ 修改
+            </button>
+            <button onclick="deletePoint('${p.id}')"
+              style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--red);
+              background:#fff0f0;color:var(--red);font-size:11px;cursor:pointer;font-family:var(--sans)">
+              🗑️
+            </button>`:''}
+          </div>`;
+        }).join('')}
       </div>`;
   }
   goPage('map');
@@ -977,12 +1121,16 @@ function openMeasure(ptId){
   document.getElementById('fileInput').value='';
 
   // Pre-fill if already recorded
+  const delBtn = document.getElementById('sheetDeleteBtn');
   if(state.records[ptId]){
     const r=state.records[ptId];
     document.getElementById('inp05').value=r.v05;
     document.getElementById('inp50').value=r.v50;
     showResult(r.v05,r.v50);
     document.getElementById('confirmBtn').disabled=false;
+    if(delBtn) delBtn.style.display='block';  // 顯示刪除按鈕
+  } else {
+    if(delBtn) delBtn.style.display='none';
   }
   setMethod('cam');
   openSheet('measureSheet');
@@ -1027,7 +1175,7 @@ async function handleCapture(input){
 async function callVisionAPI(dataURL){
   // ✅ 所有辨識統一走 GAS 後端代理
   // API Key 只存在 GAS，手機不需要填 Key
-  const gasUrl = getCfg('gasUrl');
+  const gasUrl = getGasUrl();
   const base64 = dataURL.split(',')[1];
   const mediaType = dataURL.split(';')[0].split(':')[1];
 
@@ -1077,17 +1225,36 @@ function confirmPoint(){
   const v50=parseInt(document.getElementById('inp50').value);
   if(isNaN(v05)||isNaN(v50)) return;
   const pt=state.currentPt;
+  const isEdit = !!state.records[pt.id];
   state.records[pt.id]={v05,v50,ts:new Date().toISOString()};
   closeSheet('measureSheet');
   updateProgress();
-  toast('✅ '+pt.label+' 已記錄');
+  toast(isEdit ? '✏️ '+pt.label+' 已修改' : '✅ '+pt.label+' 已記錄');
+}
+
+function deletePoint(ptId){
+  if(!confirm('確定刪除此點位的記錄？')) return;
+  delete state.records[ptId];
+  updateProgress();
+  if(state.zoneKey) selectZone(state.zoneKey);
+  toast('🗑️ 已刪除');
+}
+
+function deleteCurrentPoint(){
+  if(!state.currentPt) return;
+  if(!confirm('確定刪除「' + state.currentPt.label + '」的記錄？')) return;
+  delete state.records[state.currentPt.id];
+  closeSheet('measureSheet');
+  updateProgress();
+  if(state.zoneKey) selectZone(state.zoneKey);
+  toast('🗑️ ' + state.currentPt.label + ' 已刪除');
 }
 
 // ══════════════════════════════════════════════════════
 // SUBMIT ALL
 // ══════════════════════════════════════════════════════
 async function submitAllRecords(){
-  const gasUrl = getCfg('gasUrl');
+  const gasUrl = getGasUrl();
   const pts = config.points[state.zoneKey] || [];
 
   // 建立 payload，action 放在 body（GAS doPost 從 body.action 讀）
@@ -1112,7 +1279,7 @@ async function submitAllRecords(){
     return;
   }
 
-  showLoading('儲存資料中...');
+  showLoading(LANG[lang].loadingSave);
   try {
     // GAS CORS 需用 text/plain，避免 preflight 被擋
     const r = await fetch(gasUrl, {
@@ -1132,7 +1299,7 @@ async function submitAllRecords(){
     state.allRecords.unshift({ ...payload, submitted: true, count: result.count });
     localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0, 100)));
     hideLoading();
-    toast('✅ 資料已儲存至 Google Sheets（' + (result.count||0) + ' 筆）');
+    toast(LANG[lang].toastSaved + '（' + (result.count||0) + ' 筆）');
     renderRecords();
 
   } catch(e) {
@@ -1203,8 +1370,8 @@ function toggleZoneChip(zkey){
 }
 
 async function sendReport(){
-  if(!selectedRecipients.size){ toast('請選擇收件人',true); return; }
-  const gasUrl=getCfg('gasUrl');
+  if(!selectedRecipients.size){ toast(LANG[lang].toastNoRecip,true); return; }
+  const gasUrl=getGasUrl();
   if(!gasUrl){ toast('請先在設定頁填入 GAS 網址',true); return; }
 
   const zones = attachMode==='current' ? [state.zoneKey]
@@ -1221,7 +1388,7 @@ async function sendReport(){
     zoneName:state.zone?.name||state.zoneKey,
   };
 
-  showLoading('寄送郵件中...');
+  showLoading(LANG[lang].loadingSend);
   try{
     // GAS CORS 需用 text/plain
     const r = await fetch(gasUrl, {
@@ -1234,7 +1401,7 @@ async function sendReport(){
     if (!result.ok) throw new Error(result.error || '寄信失敗');
     hideLoading();
     closeSheet('mailSheet');
-    toast('📧 郵件已寄出！收件人：' + (result.to||[]).join(', '));
+    toast(LANG[lang].toastSendOk + ' ' + (result.to||[]).join(', '));
   }catch(e){
     hideLoading();
     toast('❌ 寄送失敗：'+e.message,true);
@@ -1270,7 +1437,7 @@ function renderRecords(){
 // ══════════════════════════════════════════════════════
 function loadSettings(){
   document.getElementById('cfgApiKey').value = getCfg('apiKey');
-  document.getElementById('cfgGasUrl').value = getCfg('gasUrl');
+  document.getElementById('cfgGasUrl').value = getGasUrl();
   document.getElementById('cfgConfigUrl').value = getCfg('configUrl');
   document.getElementById('cfgOperator').value = getCfg('operator');
   document.getElementById('sendBtn').disabled = true;
