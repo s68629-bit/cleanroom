@@ -2,11 +2,11 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v2.7                                  ║
+  ║  Version : v2.8                                  ║
   ║  Date    : 2026-04-20                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 修正 getGasUrl 無窮迴圈 bug            ║
+  ║  Changes : 記錄頁改從GAS讀取，新增修改/刪除功能            ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -392,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.7 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.8 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -1443,80 +1443,257 @@ async function sendReport(){
 // ══════════════════════════════════════════════════════
 // RECORDS
 // ══════════════════════════════════════════════════════
-function renderRecords(){
-  // 每次進記錄頁重新從 localStorage 讀取，確保最新
-  try { state.allRecords=JSON.parse(localStorage.getItem(LS.allRec)||'[]'); }catch(e){}
+// ══════════════════════════════════════════════════════
+// RECORDS PAGE — 從 GAS 讀取，支援修改/刪除
+// ══════════════════════════════════════════════════════
+let gasRecords = [];  // 從 GAS 讀取的記錄快取
 
-  const wrap=document.getElementById('recListWrap');
-  if(!state.allRecords.length){
-    wrap.innerHTML=`<div style="text-align:center;padding:36px 20px;color:var(--txt3)">
+async function renderRecords(){
+  const wrap = document.getElementById('recListWrap');
+  wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt2)">
+    <div style="font-size:28px">⏳</div>
+    <div style="margin-top:8px;font-size:13px">載入記錄中...</div>
+  </div>`;
+
+  try {
+    const gasUrl = getGasUrl();
+    const r = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getRecords', limit: 100 })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || '讀取失敗');
+    gasRecords = result.records || [];
+    renderRecordList();
+  } catch(e) {
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt3)">
+      <div style="font-size:28px">⚠️</div>
+      <div style="margin-top:8px;font-size:13px;color:var(--red)">無法讀取記錄：${e.message}</div>
+      <button onclick="renderRecords()" style="margin-top:12px;padding:8px 20px;
+        background:var(--acc);color:#fff;border:none;border-radius:8px;
+        font-size:13px;cursor:pointer;font-family:var(--sans)">🔄 重試</button>
+    </div>`;
+  }
+}
+
+function renderRecordList(){
+  const wrap = document.getElementById('recListWrap');
+  if (!gasRecords.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt3)">
       <div style="font-size:36px">📋</div>
-      <div style="margin-top:8px;font-size:14px;color:var(--txt2);font-weight:600">${LANG[lang].noRec}</div>
-      <div style="margin-top:8px;font-size:12px;color:var(--txt3);line-height:1.8">
-        此頁顯示本次使用的量測記錄<br>
-        歷史記錄請查閱 Google Sheets
-      </div>
-      <a href="https://docs.google.com/spreadsheets/d/1yrhJguwzBedbFWLnmoh-M9WwQCSHBAV-qhNONCDpaYs"
-        target="_blank"
-        style="display:inline-block;margin-top:12px;padding:8px 20px;
-        background:var(--grn2);color:var(--grn);border:1.5px solid var(--grn);
-        border-radius:8px;font-size:13px;font-weight:700;text-decoration:none">
-        📊 開啟 Google Sheets 歷史記錄
-      </a>
+      <div style="margin-top:8px;font-size:14px;color:var(--txt2);font-weight:600">尚無量測記錄</div>
     </div>`;
     return;
   }
-  wrap.innerHTML=state.allRecords.map((r,idx)=>{
-    const done=(r.records||[]).filter(p=>p.v05!=null).length;
-    const total=(r.records||[]).length;
-    const isOk=r.submitted;
-    const statusColor=isOk?'var(--grn)':'var(--ylw)';
-    const statusText=isOk?'✓ 已儲存':'⚠ 暫存本機';
-    return `<div class="rec-item">
-      <div class="rec-dot" style="background:${statusColor}"></div>
-      <div class="rec-info">
-        <div class="rec-title">${r.excelSheet||r.zoneKey||'—'}</div>
-        <div class="rec-sub">
-          ${r.date} ｜ ${r.operator||'廠務'} ｜ ${done}/${total} 點
-          ${r.error?'<br><span style="color:var(--red);font-size:10px">錯誤：'+r.error+'</span>':''}
+
+  wrap.innerHTML = '<div style="padding:0 0 80px">' +
+    gasRecords.map((g, gi) => {
+      const ptDone = g.points.filter(p => p.v05 !== '' && p.v05 !== null).length;
+      const isOver = g.points.some(p => {
+        const lim = getLimits(g.zoneKey);
+        return (lim.um05 && Number(p.v05) > lim.um05) ||
+               (lim.um50 && Number(p.v50) > lim.um50);
+      });
+      return `<div style="margin:0 16px 10px;background:var(--white);
+        border:2px solid ${isOver?'var(--red)':'var(--border)'};
+        border-radius:10px;overflow:hidden;box-shadow:var(--shadow)">
+        <!-- 群組標題 -->
+        <div style="display:flex;align-items:center;padding:12px 14px;
+          background:${isOver?'#fff0f0':'var(--blue5)'};
+          border-bottom:1px solid ${isOver?'#ffcccc':'var(--blue4)'}">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:var(--txt)">
+              ${isOver?'⚠️ ':''} ${g.zoneName||g.zoneKey}
+            </div>
+            <div style="font-size:11px;color:var(--txt2);margin-top:2px">
+              ${g.date} ｜ ${g.operator||'廠務'} ｜ ${ptDone}/${g.points.length} 點
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="editGroup(${gi})"
+              style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--acc);
+              background:var(--blue5);color:var(--acc);font-size:12px;
+              cursor:pointer;font-family:var(--sans);font-weight:600">
+              ✏️ 修改
+            </button>
+            <button onclick="deleteGroup(${gi})"
+              style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--red);
+              background:#fff0f0;color:var(--red);font-size:12px;
+              cursor:pointer;font-family:var(--sans);font-weight:600">
+              🗑️ 刪除
+            </button>
+          </div>
         </div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <div style="font-size:11px;color:${statusColor};font-weight:600">${statusText}</div>
-        ${!isOk?`<button onclick="retrySubmit(${idx})"
-          style="padding:3px 10px;border-radius:5px;border:1.5px solid var(--acc);
-          background:var(--blue5);color:var(--acc);font-size:11px;cursor:pointer;font-family:var(--sans)">
-          重試送出
-        </button>`:''}
-      </div>
-    </div>`;
-  }).join('');
+        <!-- 點位列表 -->
+        <div style="padding:8px 14px">
+          ${g.points.map(p => {
+            const lim = getLimits(g.zoneKey);
+            const over05 = lim.um05 && Number(p.v05) > lim.um05;
+            const over50 = lim.um50 && Number(p.v50) > lim.um50;
+            return `<div style="display:flex;align-items:center;gap:8px;
+              padding:6px 0;border-bottom:1px solid #f0f4f8">
+              <div style="width:28px;height:28px;border-radius:50%;
+                background:var(--ylw);display:flex;align-items:center;
+                justify-content:center;font-size:10px;font-weight:700;
+                color:#fff;flex-shrink:0">${p.label}</div>
+              <div style="flex:1;font-size:12px;color:var(--txt2)">${p.name||'—'}</div>
+              <div style="font-family:var(--mono);font-size:12px;
+                color:${over05?'var(--red)':'var(--grn)'}">
+                0.5: ${p.v05!==''&&p.v05!==null?p.v05:'—'}
+              </div>
+              <div style="font-family:var(--mono);font-size:12px;
+                color:${over50?'var(--red)':'var(--grn)'}">
+                5.0: ${p.v50!==''&&p.v50!==null?p.v50:'—'}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('') + '</div>';
 }
 
-// 重試送出失敗的記錄
-async function retrySubmit(idx){
-  const rec = state.allRecords[idx];
-  if(!rec) return;
-  const gasUrl = getGasUrl();
-  showLoading('重試送出中...');
-  try{
-    const r = await fetch(gasUrl, {
-      method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({...rec, action:'submit'})
-    });
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const result = await r.json();
-    if(!result.ok) throw new Error(result.error||'失敗');
-    state.allRecords[idx].submitted = true;
-    delete state.allRecords[idx].error;
-    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords));
-    hideLoading();
-    renderRecords();
-    toast('✅ 重試送出成功');
-  }catch(e){
-    hideLoading();
-    toast('❌ 重試失敗：'+e.message, true);
+function getLimits(zoneKey) {
+  const map = {
+    '2F_R1':{um05:10000,um50:70}, '2F_R2':{um05:10000,um50:70},
+    '2F_10K':{um05:10000,um50:70}, '2F_100K':{um05:100000,um50:700},
+    '3F_R3':{um05:10000,um50:70}, '3F_10K':{um05:10000,um50:70},
+    '3F_100K':{um05:100000,um50:700},
+  };
+  // Try to match by contains
+  for (const [k, v] of Object.entries(map)) {
+    if (zoneKey && zoneKey.includes(k.split('_').pop())) return v;
   }
+  return map[zoneKey] || {};
+}
+
+// ── 刪除整筆群組記錄 ──
+async function deleteGroup(gi) {
+  const g = gasRecords[gi];
+  if (!g) return;
+  if (!confirm(`確定刪除「${g.zoneName}」${g.date} 的 ${g.points.length} 筆記錄？
+此動作會從 Google Sheets 刪除，無法復原。`)) return;
+
+  showLoading('刪除中...');
+  try {
+    const rowNums = g.rowNums || g.points.map(p => p.rowNum);
+    const r = await fetch(getGasUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'deleteRecord', rowNums })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || '刪除失敗');
+    hideLoading();
+    toast('🗑️ 已刪除 ' + g.points.length + ' 筆記錄');
+    await renderRecords();  // 重新載入
+  } catch(e) {
+    hideLoading();
+    toast('❌ 刪除失敗：' + e.message, true);
+  }
+}
+
+// ── 修改群組內的點位數值 ──
+function editGroup(gi) {
+  const g = gasRecords[gi];
+  if (!g) return;
+
+  // 建立修改 Sheet
+  const body = document.getElementById('editGroupSheet');
+  if (body) body.remove();
+
+  const sheet = document.createElement('div');
+  sheet.id = 'editGroupSheet';
+  sheet.className = 'sheet-overlay open';
+  sheet.innerHTML = `
+    <div class="sheet" style="max-height:85vh;display:flex;flex-direction:column">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" style="display:flex;justify-content:space-between;align-items:center;padding:0 20px 12px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--blue1)">✏️ 修改記錄</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:2px">${g.zoneName} ｜ ${g.date}</div>
+        </div>
+        <button onclick="document.getElementById('editGroupSheet').remove()"
+          style="background:var(--bg);border:1px solid var(--border);border-radius:6px;
+          padding:5px 12px;cursor:pointer;color:var(--txt2);font-family:var(--sans)">✕ 關閉</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:0 20px 16px">
+        ${g.points.map((p, pi) => `
+          <div style="margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:8px">
+              ${p.label} ${p.name?'— '+p.name:''}
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="flex:1">
+                <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">0.5 μm</div>
+                <input id="edit05_${pi}" type="number" value="${p.v05}" inputmode="numeric"
+                  style="width:100%;background:var(--white);border:1.5px solid var(--border);
+                  border-radius:6px;padding:8px 10px;font-size:15px;font-family:var(--mono);outline:none">
+              </div>
+              <div style="flex:1">
+                <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">5.0 μm</div>
+                <input id="edit50_${pi}" type="number" value="${p.v50}" inputmode="numeric"
+                  style="width:100%;background:var(--white);border:1.5px solid var(--border);
+                  border-radius:6px;padding:8px 10px;font-size:15px;font-family:var(--mono);outline:none">
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div style="padding:12px 20px;border-top:2px solid var(--blue4)">
+        <button onclick="saveEditGroup(${gi})"
+          style="width:100%;padding:13px;background:var(--acc);color:#fff;border:none;
+          border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--sans)">
+          💾 儲存修改
+        </button>
+      </div>
+    </div>`;
+
+  sheet.addEventListener('click', e => { if(e.target === sheet) sheet.remove(); });
+  document.body.appendChild(sheet);
+}
+
+async function saveEditGroup(gi) {
+  const g = gasRecords[gi];
+  if (!g) return;
+
+  showLoading('儲存修改中...');
+  let successCount = 0, errorCount = 0;
+
+  for (let pi = 0; pi < g.points.length; pi++) {
+    const p = g.points[pi];
+    const inp05 = document.getElementById('edit05_' + pi);
+    const inp50 = document.getElementById('edit50_' + pi);
+    if (!inp05 || !inp50) continue;
+
+    const v05 = inp05.value;
+    const v50 = inp50.value;
+
+    // 只有值有改變才更新
+    if (String(v05) === String(p.v05) && String(v50) === String(p.v50)) continue;
+
+    try {
+      const r = await fetch(getGasUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'updateRecord', rowNum: p.rowNum, v05, v50 })
+      });
+      const result = await r.json();
+      if (result.ok) successCount++;
+      else errorCount++;
+    } catch(e) { errorCount++; }
+  }
+
+  hideLoading();
+  document.getElementById('editGroupSheet')?.remove();
+
+  if (errorCount === 0) {
+    toast('✅ 修改完成（' + successCount + ' 筆）');
+  } else {
+    toast(`⚠️ 完成 ${successCount} 筆，失敗 ${errorCount} 筆`, true);
+  }
+  await renderRecords();
 }
 
 // ══════════════════════════════════════════════════════
