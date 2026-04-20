@@ -382,6 +382,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.5 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -879,7 +880,7 @@ async function syncConfig(){
     hideLoading();
     renderHome();           // 重新 render 樓層
     renderRecords();        // 同時刷新記錄頁
-    toast('✅ 設定載入完成');
+    toast('✅ 設定載入完成 — ' + (config.floors||[]).length + ' 個樓層');
     updateCfgStatus();
   } catch(e){
     hideLoading();
@@ -943,9 +944,25 @@ function renderHome(){
   const grid = document.getElementById('floorGrid');
   const floors = config.floors||[];
   if(!floors.length){
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--txt3)">
+    // 顯示目前 config 狀態方便除錯
+    const configKeys = Object.keys(config).join(', ');
+    const hasFloors = Array.isArray(config.floors);
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--txt3)">
       <div style="font-size:36px">⚙️</div>
-      <div style="font-size:13px;margin-top:8px">尚未載入設定<br>請確認 all_config.json 已部署</div></div>`;
+      <div style="font-size:14px;margin-top:8px;color:var(--txt2);font-weight:600">設定載入中或尚未完成</div>
+      <div style="font-size:11px;margin-top:8px;line-height:1.8;color:var(--txt3)">
+        請點右上角 🔄 重新整理設定<br>
+        或確認 all_config.json 已上傳到 GitHub
+      </div>
+      <button onclick="syncConfig()" style="margin-top:16px;padding:10px 24px;
+        background:var(--acc);color:#fff;border:none;border-radius:8px;
+        font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans)">
+        🔄 重新載入設定
+      </button>
+      <div style="margin-top:12px;font-size:10px;color:var(--txt3);font-family:monospace">
+        config keys: ${configKeys} | floors: ${hasFloors} (${floors.length})
+      </div>
+    </div>`;
     return;
   }
   grid.innerHTML = floors.map(f=>`
