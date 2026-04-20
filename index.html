@@ -382,7 +382,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.5 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.6 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -859,17 +859,14 @@ window.addEventListener('load', async ()=>{
   // 先載入本機歷史記錄
   try { state.allRecords = JSON.parse(localStorage.getItem(LS.allRec)||'[]'); } catch(e){}
 
-  // 先 render 空首頁（讓畫面不空白）
-  renderHome();
-
-  // 再載入 config（非同步）
-  await syncConfig();
+  // 直接靜默載入 config，不顯示 loading 畫面
+  await syncConfig(true);
 });
 
-async function syncConfig(){
-  showLoading(LANG[lang].loadingConfig);
+async function syncConfig(silent=false){
+  // silent=true 時不顯示 loading（初始載入用）
+  if(!silent) showLoading(LANG[lang].loadingConfig);
   try {
-    // 加 cache-busting 參數避免 GitHub Pages 快取問題
     const url = getCfg('configUrl') || './all_config.json';
     const resp = await fetch(url + '?t=' + Date.now(), {
       cache: 'no-cache',
@@ -877,14 +874,14 @@ async function syncConfig(){
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     config = await resp.json();
-    hideLoading();
-    renderHome();           // 重新 render 樓層
-    renderRecords();        // 同時刷新記錄頁
-    toast('✅ 設定載入完成 — ' + (config.floors||[]).length + ' 個樓層');
+    if(!silent) hideLoading();
+    renderHome();
+    renderRecords();
+    if(!silent) toast('✅ 設定載入完成 — ' + (config.floors||[]).length + ' 個樓層');
     updateCfgStatus();
   } catch(e){
-    hideLoading();
-    // Fallback: try localStorage (editor saved data)
+    if(!silent) hideLoading();
+    // Fallback: try localStorage
     try {
       const raw = localStorage.getItem('cr_editor_v2');
       if(raw){
@@ -1442,9 +1439,21 @@ function renderRecords(){
 
   const wrap=document.getElementById('recListWrap');
   if(!state.allRecords.length){
-    wrap.innerHTML=`<div style="text-align:center;padding:40px;color:var(--txt3)">
+    wrap.innerHTML=`<div style="text-align:center;padding:36px 20px;color:var(--txt3)">
       <div style="font-size:36px">📋</div>
-      <div style="margin-top:8px;font-size:14px" id="lbl-noRec">${LANG[lang].noRec}</div></div>`;
+      <div style="margin-top:8px;font-size:14px;color:var(--txt2);font-weight:600">${LANG[lang].noRec}</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--txt3);line-height:1.8">
+        此頁顯示本次使用的量測記錄<br>
+        歷史記錄請查閱 Google Sheets
+      </div>
+      <a href="https://docs.google.com/spreadsheets/d/1yrhJguwzBedbFWLnmoh-M9WwQCSHBAV-qhNONCDpaYs"
+        target="_blank"
+        style="display:inline-block;margin-top:12px;padding:8px 20px;
+        background:var(--grn2);color:var(--grn);border:1.5px solid var(--grn);
+        border-radius:8px;font-size:13px;font-weight:700;text-decoration:none">
+        📊 開啟 Google Sheets 歷史記錄
+      </a>
+    </div>`;
     return;
   }
   wrap.innerHTML=state.allRecords.map((r,idx)=>{
