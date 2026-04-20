@@ -2,11 +2,11 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v2.8                                  ║
+  ║  Version : v2.9                                  ║
   ║  Date    : 2026-04-20                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 記錄頁改從GAS讀取，新增修改/刪除功能            ║
+  ║  Changes : 首頁日期選擇、多人員下拉選單            ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -392,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.8 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.9 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -408,7 +408,36 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
 
 <!-- ══ PAGE: HOME ══ -->
 <div class="page active" id="page-home">
-  <div class="sec-hd" id="lbl-selFloor">選擇樓層</div>
+
+  <!-- 量測設定列：日期 + 人員 -->
+  <div style="display:flex;gap:10px;padding:12px 16px 0;align-items:flex-end;flex-wrap:wrap">
+    <!-- 日期選擇 -->
+    <div style="flex:1;min-width:140px">
+      <div style="font-size:11px;color:var(--txt2);font-weight:600;margin-bottom:4px;letter-spacing:.5px">📅 量測日期</div>
+      <input type="date" id="measureDate"
+        style="width:100%;background:var(--white);border:2px solid var(--border);
+        border-radius:8px;padding:8px 12px;font-size:14px;color:var(--txt);
+        font-family:var(--sans);outline:none;transition:.15s;cursor:pointer"
+        onfocus="this.style.borderColor='var(--acc)'"
+        onblur="this.style.borderColor='var(--border)'"
+        onchange="onMeasureDateChange(this.value)">
+    </div>
+    <!-- 人員選擇 -->
+    <div style="flex:1;min-width:140px">
+      <div style="font-size:11px;color:var(--txt2);font-weight:600;margin-bottom:4px;letter-spacing:.5px">👤 量測人員</div>
+      <select id="operatorSelect"
+        style="width:100%;background:var(--white);border:2px solid var(--border);
+        border-radius:8px;padding:8px 12px;font-size:14px;color:var(--txt);
+        font-family:var(--sans);outline:none;transition:.15s;cursor:pointer;appearance:auto"
+        onfocus="this.style.borderColor='var(--acc)'"
+        onblur="this.style.borderColor='var(--border)'"
+        onchange="onOperatorChange(this.value)">
+        <option value="">請選擇人員</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="sec-hd" id="lbl-selFloor" style="margin-top:8px">選擇樓層</div>
   <div class="card-grid" id="floorGrid"></div>
 </div>
 
@@ -510,11 +539,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div class="setting-row">
       <div class="setting-icon">👤</div>
       <div class="setting-info" style="flex:1">
-        <div class="setting-label" id="lbl-operatorLabel">量測人員姓名</div>
-        <div class="setting-desc">記錄於 Excel 表格「製表人」欄位</div>
-        <input class="setting-inp" id="cfgOperator" placeholder="請輸入姓名">
+        <div class="setting-label" id="lbl-operatorLabel">量測人員名單</div>
+        <div class="setting-desc" id="lbl-operatorDesc">多人請用逗號分隔，例如：王小明, 李大華, 陳阿花<br>首頁量測時可從下拉選單選擇</div>
+        <textarea class="setting-inp" id="cfgOperator" rows="3"
+          placeholder="王小明, 李大華, 陳阿花"
+          style="resize:vertical;font-family:var(--sans);line-height:1.6"></textarea>
         <div style="margin-top:6px">
-          <button class="setting-save" onclick="saveSetting('operator')" id="lbl-savBtn4">儲存</button>
+          <button class="setting-save" onclick="saveOperators()" id="lbl-savBtn4">儲存</button>
         </div>
         <div class="setting-status" id="st-operator">✅ 已儲存</div>
       </div>
@@ -858,6 +889,75 @@ let state = {
 function getCfg(k){ return localStorage.getItem(LS[k])||''; }
 function setCfg(k,v){ localStorage.setItem(LS[k], v); }
 
+// ── 量測日期（預設今天，可選其他日期）──
+let measureDate = new Date().toISOString().split('T')[0];
+
+function initMeasureDate() {
+  const el = document.getElementById('measureDate');
+  if (el) {
+    el.value = measureDate;
+    el.max = new Date().toISOString().split('T')[0]; // 不能選未來
+  }
+}
+
+function onMeasureDateChange(val) {
+  measureDate = val || new Date().toISOString().split('T')[0];
+  // 清除目前量測記錄（換日期等於重新開始）
+  if (state.records && Object.keys(state.records).length > 0) {
+    if (confirm('切換日期會清除目前未儲存的量測記錄，確定嗎？')) {
+      state.records = {};
+      updateProgress();
+    } else {
+      // 還原日期
+      document.getElementById('measureDate').value = measureDate;
+      return;
+    }
+  }
+}
+
+function getMeasureDate() {
+  return measureDate || new Date().toISOString().split('T')[0];
+}
+
+// ── 量測人員清單 ──
+function getOperatorList() {
+  const raw = getCfg('operator') || '';
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function initOperatorSelect() {
+  const sel = document.getElementById('operatorSelect');
+  if (!sel) return;
+  const list = getOperatorList();
+  const current = localStorage.getItem('cr_currentOperator') || '';
+  sel.innerHTML = '<option value="">請選擇人員</option>' +
+    list.map(name =>
+      `<option value="${name}" ${name === current ? 'selected' : ''}>${name}</option>`
+    ).join('');
+  if (!current && list.length > 0) {
+    // 預設選第一位
+    sel.value = list[0];
+    localStorage.setItem('cr_currentOperator', list[0]);
+  }
+}
+
+function onOperatorChange(val) {
+  localStorage.setItem('cr_currentOperator', val);
+}
+
+function getCurrentOperator() {
+  return localStorage.getItem('cr_currentOperator') ||
+         getCfg('operator').split(',')[0].trim() ||
+         '廠務';
+}
+
+function saveOperators() {
+  const val = document.getElementById('cfgOperator').value.trim();
+  setCfg('operator', val);
+  showSaveStatus('st-operator');
+  initOperatorSelect(); // 重新載入下拉選單
+}
+
 // ══════════════════════════════════════════════════════
 // BOOT — load config
 // ══════════════════════════════════════════════════════
@@ -865,6 +965,8 @@ window.addEventListener('load', async ()=>{
   initDate();
   loadSettings();
   applyLang();
+  initMeasureDate();
+  initOperatorSelect();
 
   // 先載入本機歷史記錄
   try { state.allRecords = JSON.parse(localStorage.getItem(LS.allRec)||'[]'); } catch(e){}
@@ -1294,8 +1396,8 @@ async function submitAllRecords(){
     action: 'submit',
     zoneKey: state.zoneKey,
     excelSheet: state.zone?.excelSheet || state.zoneKey,
-    date: new Date().toISOString().split('T')[0],
-    operator: getCfg('operator') || '廠務',
+    date: getMeasureDate(),
+    operator: getCurrentOperator(),
     records: pts.map(p => ({
       ptId: p.id, label: p.label, name: p.name,
       ...(state.records[p.id] || { v05: null, v50: null })
