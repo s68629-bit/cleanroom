@@ -1,4 +1,14 @@
 <!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════╗
+  ║  無塵室微粒子量測 APP                              ║
+  ║  Version : v2.7                                  ║
+  ║  Date    : 2026-04-20                            ║
+  ║  Author  : 東立材料股份有限公司 廠務部              ║
+  ║  Repo    : github.com/s68629-bit/cleanroom       ║
+  ║  Changes : 修正 getGasUrl 無窮迴圈 bug            ║
+  ╚══════════════════════════════════════════════════╝
+-->
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -382,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.6 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v2.7 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -680,7 +690,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzOVdq-evRVkBycxTn2NvPT
 
 // 取得 GAS 網址：優先用設定頁填的（管理員可覆蓋），否則用預設
 function getGasUrl() {
-  return getGasUrl() || GAS_URL;
+  return getCfg('gasUrl') || GAS_URL;
 }
 
 // ══════════════════════════════════════════════════════
