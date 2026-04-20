@@ -1033,12 +1033,15 @@ async function callVisionAPI(dataURL){
   // Try GAS proxy first (avoids CORS + hides API key)
   if(gasUrl){
     try{
-      const r = await fetch(gasUrl+'?action=analyze',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({image:base64, mediaType})
+      const r = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'analyze', image: base64, mediaType })
       });
-      if(r.ok) return await r.json();
+      if (r.ok) {
+        const d = await r.json();
+        if (d.ok) return d;
+      }
     }catch(e){}
   }
 
@@ -1111,42 +1114,59 @@ function confirmPoint(){
 // SUBMIT ALL
 // ══════════════════════════════════════════════════════
 async function submitAllRecords(){
-  const gasUrl=getCfg('gasUrl');
-  const pts=config.points[state.zoneKey]||[];
-  const payload={
-    action:'submit',
-    zoneKey:state.zoneKey,
-    excelSheet:state.zone?.excelSheet||state.zoneKey,
-    date:new Date().toISOString().split('T')[0],
-    operator:getCfg('operator')||'廠務',
-    records:pts.map(p=>({
-      ptId:p.id, label:p.label, name:p.name,
-      ...(state.records[p.id]||{v05:null,v50:null})
+  const gasUrl = getCfg('gasUrl');
+  const pts = config.points[state.zoneKey] || [];
+
+  // 建立 payload，action 放在 body（GAS doPost 從 body.action 讀）
+  const payload = {
+    action: 'submit',
+    zoneKey: state.zoneKey,
+    excelSheet: state.zone?.excelSheet || state.zoneKey,
+    date: new Date().toISOString().split('T')[0],
+    operator: getCfg('operator') || '廠務',
+    records: pts.map(p => ({
+      ptId: p.id, label: p.label, name: p.name,
+      ...(state.records[p.id] || { v05: null, v50: null })
     }))
   };
 
-  showLoading('儲存資料中...');
-  try{
-    if(gasUrl){
-      const r=await fetch(gasUrl+'?action=submit',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      if(!r.ok) throw new Error('HTTP '+r.status);
-    }
-    // Save to local history
-    state.allRecords.unshift({...payload, submitted:true});
-    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0,100)));
-    hideLoading();
-    toast('✅ 資料已儲存');
+  if (!gasUrl) {
+    // 沒填 GAS 網址，直接存本機
+    state.allRecords.unshift({ ...payload, submitted: false, error: '未設定GAS網址' });
+    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0, 100)));
+    toast('⚠️ 未設定 GAS 網址，資料暫存本機', true);
     renderRecords();
-  }catch(e){
+    return;
+  }
+
+  showLoading('儲存資料中...');
+  try {
+    const r = await fetch(gasUrl, {   // 直接用 gasUrl，不加 ?action=
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // 先檢查 HTTP 狀態
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+    // 再檢查 GAS 回傳的 ok 欄位
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || 'GAS 回傳錯誤');
+
+    // 成功
+    state.allRecords.unshift({ ...payload, submitted: true, count: result.count });
+    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0, 100)));
     hideLoading();
-    // Save locally anyway
-    state.allRecords.unshift({...payload, submitted:false, error:e.message});
-    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0,100)));
-    toast('⚠️ 暫存本機（GAS連線失敗）',true);
+    toast('✅ 資料已儲存至 Google Sheets（' + (result.count||0) + ' 筆）');
+    renderRecords();
+
+  } catch(e) {
+    hideLoading();
+    state.allRecords.unshift({ ...payload, submitted: false, error: e.message });
+    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0, 100)));
+    toast('❌ 儲存失敗：' + e.message, true);
+    renderRecords();
   }
 }
 
@@ -1229,16 +1249,17 @@ async function sendReport(){
 
   showLoading('寄送郵件中...');
   try{
-    const r=await fetch(gasUrl+'?action=sendMail',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
+    const r = await fetch(gasUrl, {   // action 在 body 裡，不加在 URL
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const result=await r.json();
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || '寄信失敗');
     hideLoading();
     closeSheet('mailSheet');
-    toast('📧 郵件已寄出！');
+    toast('📧 郵件已寄出！收件人：' + (result.to||[]).join(', '));
   }catch(e){
     hideLoading();
     toast('❌ 寄送失敗：'+e.message,true);
