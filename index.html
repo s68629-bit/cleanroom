@@ -457,11 +457,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
       <div class="setting-icon">🔑</div>
       <div class="setting-info" style="flex:1">
         <div class="setting-label">Claude API Key</div>
-        <div class="setting-desc">用於 AI 辨識計數器螢幕數值</div>
-        <input class="setting-inp" id="cfgApiKey" type="password" placeholder="sk-ant-api03-...">
+        <div class="setting-desc">⚠️ 一般使用者<b>不需要填寫</b>，AI 辨識已由 GAS 後端代理處理。<br>僅管理員備用（GAS 失效時使用）。</div>
+        <input class="setting-inp" id="cfgApiKey" type="password" placeholder="（選填）sk-ant-api03-...">
         <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
           <button class="setting-save" onclick="saveSetting('apiKey')">儲存</button>
-          <button class="setting-save" style="background:var(--s2);border-color:var(--border);color:var(--txt2)"
+          <button class="setting-save" style="background:var(--bg2);border-color:var(--border);color:var(--txt2)"
             onclick="toggleShowKey()">👁</button>
         </div>
         <div class="setting-status" id="st-apiKey">✅ 已儲存</div>
@@ -1025,56 +1025,28 @@ async function handleCapture(input){
 }
 
 async function callVisionAPI(dataURL){
-  const apiKey = getCfg('apiKey');
+  // ✅ 所有辨識統一走 GAS 後端代理
+  // API Key 只存在 GAS，手機不需要填 Key
   const gasUrl = getCfg('gasUrl');
   const base64 = dataURL.split(',')[1];
   const mediaType = dataURL.split(';')[0].split(':')[1];
 
-  // Try GAS proxy first (avoids CORS + hides API key)
-  if(gasUrl){
-    try{
-      const r = await fetch(gasUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'analyze', image: base64, mediaType })
-      });
-      if (r.ok) {
-        const d = await r.json();
-        if (d.ok) return d;
-      }
-    }catch(e){}
+  if(!gasUrl){
+    throw new Error('請先在設定頁填入 GAS 後端網址');
   }
 
-  // Direct Anthropic call (needs API key)
-  if(apiKey){
-    const r = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify({
-        model:'claude-opus-4-6',
-        max_tokens:200,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
-            {type:'text',text:'這是 TSI AeroTrak 微粒子計數器的螢幕照片。請從螢幕上找到 0.5μm 和 5.0μm 對應的計數數值（Σ# 欄位），只回傳 JSON：{"v05":數字,"v50":數字}，不要其他文字。'}
-          ]
-        }]
-      })
-    });
-    const d = await r.json();
-    const txt = d.content?.[0]?.text||'';
-    const m = txt.match(/\{[^}]+\}/);
-    if(m) return JSON.parse(m[0]);
-  }
+  const r = await fetch(gasUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'analyze', image: base64, mediaType })
+  });
 
-  // Mock for testing
-  return {v05:Math.floor(Math.random()*5000), v50:Math.floor(Math.random()*50)};
+  if(!r.ok) throw new Error('GAS 連線失敗 HTTP ' + r.status);
+
+  const d = await r.json();
+  if(!d.ok) throw new Error(d.error || 'AI 辨識失敗');
+
+  return { v05: d.v05, v50: d.v50 };
 }
 
 function onValChange(){
