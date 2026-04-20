@@ -2257,7 +2257,7 @@ function initChartPage() {
     });
     sel.innerHTML = allZones.map(z =>
       `<option value="${z.key}" ${z.key.includes('100K') && z.key.startsWith('2F') ? 'selected' : ''}>${z.floorName} - ${z.name}</option>`
-      ).join('\r\n');
+      ).join('');
   }
   updateChartLimits();
   renderChart();
