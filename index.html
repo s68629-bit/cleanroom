@@ -853,40 +853,48 @@ function setCfg(k,v){ localStorage.setItem(LS[k], v); }
 window.addEventListener('load', async ()=>{
   initDate();
   loadSettings();
-  loadHistory();
   applyLang();
 
-  // Load saved allRecords
+  // 先載入本機歷史記錄
   try { state.allRecords = JSON.parse(localStorage.getItem(LS.allRec)||'[]'); } catch(e){}
 
+  // 先 render 空首頁（讓畫面不空白）
+  renderHome();
+
+  // 再載入 config（非同步）
   await syncConfig();
 });
 
 async function syncConfig(){
   showLoading(LANG[lang].loadingConfig);
   try {
+    // 加 cache-busting 參數避免 GitHub Pages 快取問題
     const url = getCfg('configUrl') || './all_config.json';
-    const resp = await fetch(url + '?t=' + Date.now());
+    const resp = await fetch(url + '?t=' + Date.now(), {
+      cache: 'no-cache',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     config = await resp.json();
     hideLoading();
-    renderHome();
+    renderHome();           // 重新 render 樓層
+    renderRecords();        // 同時刷新記錄頁
     toast('✅ 設定載入完成');
     updateCfgStatus();
   } catch(e){
     hideLoading();
-    // Fallback: try localStorage (editor saved)
+    // Fallback: try localStorage (editor saved data)
     try {
       const raw = localStorage.getItem('cr_editor_v2');
       if(raw){
         const d = JSON.parse(raw);
         config = { floors: d.floors||[], zones: d.zones||{}, points: d.points||{} };
-        // load images from editor localStorage
         Object.values(config.zones).flat().forEach(z=>{
           const img = localStorage.getItem('cr_img_'+z.key);
           if(img) imageCache[z.key] = img;
         });
         renderHome();
+        renderRecords();
         toast('⚠️ 使用本機設定（無法連線到設定檔）');
         return;
       }
@@ -1412,24 +1420,67 @@ async function sendReport(){
 // RECORDS
 // ══════════════════════════════════════════════════════
 function renderRecords(){
+  // 每次進記錄頁重新從 localStorage 讀取，確保最新
+  try { state.allRecords=JSON.parse(localStorage.getItem(LS.allRec)||'[]'); }catch(e){}
+
   const wrap=document.getElementById('recListWrap');
   if(!state.allRecords.length){
     wrap.innerHTML=`<div style="text-align:center;padding:40px;color:var(--txt3)">
       <div style="font-size:36px">📋</div>
-      <div style="margin-top:8px;font-size:13px">尚無量測記錄</div></div>`;
+      <div style="margin-top:8px;font-size:14px" id="lbl-noRec">${LANG[lang].noRec}</div></div>`;
     return;
   }
-  wrap.innerHTML=state.allRecords.map(r=>{
+  wrap.innerHTML=state.allRecords.map((r,idx)=>{
     const done=(r.records||[]).filter(p=>p.v05!=null).length;
+    const total=(r.records||[]).length;
+    const isOk=r.submitted;
+    const statusColor=isOk?'var(--grn)':'var(--ylw)';
+    const statusText=isOk?'✓ 已儲存':'⚠ 暫存本機';
     return `<div class="rec-item">
-      <div class="rec-dot"></div>
+      <div class="rec-dot" style="background:${statusColor}"></div>
       <div class="rec-info">
-        <div class="rec-title">${r.excelSheet||r.zoneKey}</div>
-        <div class="rec-sub">${r.date} ｜ 量測人：${r.operator||'—'} ｜ ${done}/${(r.records||[]).length} 點</div>
+        <div class="rec-title">${r.excelSheet||r.zoneKey||'—'}</div>
+        <div class="rec-sub">
+          ${r.date} ｜ ${r.operator||'廠務'} ｜ ${done}/${total} 點
+          ${r.error?'<br><span style="color:var(--red);font-size:10px">錯誤：'+r.error+'</span>':''}
+        </div>
       </div>
-      <div class="rec-status">${r.submitted?'✓ 已儲存':'⚠ 本機'}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div style="font-size:11px;color:${statusColor};font-weight:600">${statusText}</div>
+        ${!isOk?`<button onclick="retrySubmit(${idx})"
+          style="padding:3px 10px;border-radius:5px;border:1.5px solid var(--acc);
+          background:var(--blue5);color:var(--acc);font-size:11px;cursor:pointer;font-family:var(--sans)">
+          重試送出
+        </button>`:''}
+      </div>
     </div>`;
   }).join('');
+}
+
+// 重試送出失敗的記錄
+async function retrySubmit(idx){
+  const rec = state.allRecords[idx];
+  if(!rec) return;
+  const gasUrl = getGasUrl();
+  showLoading('重試送出中...');
+  try{
+    const r = await fetch(gasUrl, {
+      method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({...rec, action:'submit'})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const result = await r.json();
+    if(!result.ok) throw new Error(result.error||'失敗');
+    state.allRecords[idx].submitted = true;
+    delete state.allRecords[idx].error;
+    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords));
+    hideLoading();
+    renderRecords();
+    toast('✅ 重試送出成功');
+  }catch(e){
+    hideLoading();
+    toast('❌ 重試失敗：'+e.message, true);
+  }
 }
 
 // ══════════════════════════════════════════════════════
