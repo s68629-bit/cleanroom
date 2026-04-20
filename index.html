@@ -2,11 +2,11 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v3.2                                  ║
+  ║  Version : v3.3                                  ║
   ║  Date    : 2026-04-20                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 備註欄（前端+後端）、記錄頁顯示備註            ║
+  ║  Changes : 管制圖分頁（紀錄表+折線圖+tooltip備註）            ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -392,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.2 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.3 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -535,6 +535,54 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div style="text-align:center;padding:40px;color:var(--txt3)">
       <div style="font-size:36px">📋</div>
       <div style="margin-top:8px;font-size:13px" id="lbl-noRec">尚無量測記錄</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: CHART ══ -->
+<div class="page" id="page-chart">
+
+  <!-- 篩選工具列 -->
+  <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <!-- 區域選擇 -->
+    <select id="chartZoneKey" onchange="updateChartLimits();renderChart()"
+      style="flex:1;background:var(--white);border:2px solid var(--border);border-radius:8px;
+      padding:7px 10px;font-size:13px;color:var(--txt);font-family:var(--sans);outline:none;cursor:pointer">
+    </select>
+    <!-- 時間範圍 -->
+    <select id="chartRange" onchange="renderChart()"
+      style="background:var(--white);border:2px solid var(--border);border-radius:8px;
+      padding:7px 10px;font-size:13px;color:var(--txt);font-family:var(--sans);outline:none;cursor:pointer">
+      <option value="month">本月</option>
+      <option value="last3">近3個月</option>
+      <option value="quarter">本季</option>
+    </select>
+  </div>
+
+  <!-- 上限值設定 -->
+  <div style="padding:8px 16px 0;display:flex;gap:8px;align-items:center">
+    <div style="font-size:12px;color:var(--txt2)">0.5μm 上限：</div>
+    <input type="number" id="chartLimit05" value="10000"
+      oninput="this.dataset.userSet='1'"
+      style="width:90px;background:var(--white);border:2px solid var(--border);border-radius:6px;
+      padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--txt);outline:none"
+      onchange="renderChart()">
+    <div style="font-size:12px;color:var(--txt2);margin-left:8px">5μm 上限：</div>
+    <input type="number" id="chartLimit50" value="70"
+      oninput="this.dataset.userSet='1'"
+      style="width:70px;background:var(--white);border:2px solid var(--border);border-radius:6px;
+      padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--txt);outline:none"
+      onchange="renderChart()">
+    <button onclick="renderChart()"
+      style="padding:5px 12px;background:var(--acc);color:#fff;border:none;border-radius:6px;
+      font-size:12px;cursor:pointer;font-family:var(--sans)">套用</button>
+  </div>
+
+  <!-- 圖表內容區 -->
+  <div id="chartContent" style="padding:8px 16px 80px">
+    <div style="text-align:center;padding:40px;color:var(--txt3)">
+      <div style="font-size:28px">📊</div>
+      <div style="margin-top:8px;font-size:13px">載入中...</div>
     </div>
   </div>
 </div>
@@ -753,6 +801,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
     <div class="nav-icon">📋</div>
     <div class="nav-label" id="navlbl-records">記錄</div>
   </div>
+  <div class="nav-btn" id="nav-chart" onclick="switchNav('chart')">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label" id="navlbl-chart">管制圖</div>
+  </div>
   <div class="nav-btn" id="nav-settings" onclick="switchNav('settings')">
     <div class="nav-icon">⚙️</div>
     <div class="nav-label" id="navlbl-settings">設定</div>
@@ -830,7 +882,7 @@ const LANG = {
     toastDeleted:'🗑️ 已刪除',
     toastNoGas:'未設定 GAS 網址，資料暫存本機',
     toastNoRecip:'請選擇收件人',
-    pill:'TH',
+    chart:'管制圖', pill:'TH',
   },
   th:{
     appTitle:'🏭 วัดอนุภาคห้องสะอาด',
@@ -871,7 +923,7 @@ const LANG = {
     toastDeleted:'🗑️ ลบแล้ว',
     toastNoGas:'ยังไม่ตั้งค่า GAS บันทึกชั่วคราว',
     toastNoRecip:'กรุณาเลือกผู้รับ',
-    pill:'中',
+    chart:'แผนภูมิ', pill:'中',
   }
 };
 let lang = 'zh';
@@ -916,6 +968,7 @@ function applyLang(){
   // Bottom nav
   set('navlbl-measure', L.measure);
   set('navlbl-records', L.records);
+  set('navlbl-chart', L.chart);
   set('navlbl-settings', L.settings);
 
   // Settings page
@@ -2137,12 +2190,13 @@ function loadHistory(){
 // NAV / PAGE
 // ══════════════════════════════════════════════════════
 function switchNav(tab){
-  ['home','records','settings'].forEach(t=>{
+  ['home','records','chart','settings'].forEach(t=>{
     document.getElementById('nav-'+t)?.classList.remove('active');
   });
   document.getElementById('nav-'+tab)?.classList.add('active');
   if(tab==='home') goPage(state.zoneKey?'map':state.floor?'zone':'home');
   else if(tab==='records'){ renderRecords(); goPage('records'); }
+  else if(tab==='chart'){ initChartPage(); goPage('chart'); }
   else if(tab==='settings') goPage('settings');
 }
 
@@ -2159,6 +2213,312 @@ function goHome(){
   switchNav('home');
   goPage('home');
 }
+
+// ══════════════════════════════════════════════════════
+// 管制圖分頁
+// ══════════════════════════════════════════════════════
+let chartData = [];  // 從 GAS 讀取的圖表資料
+
+// 管制上限對照表
+const CHART_LIMITS = {
+  '2F_R2R':        { um05: 10000,  um50: 70  },
+  '2F_R1':         { um05: 10000,  um50: 70  },
+  '2F_R2':         { um05: 10000,  um50: 70  },
+  '2F_Class 100K': { um05: 100000, um50: 700 },
+  '3F_R3':         { um05: 10000,  um50: 70  },
+  '3F_R2R':        { um05: 10000,  um50: 70  },
+  '3F_Class 100K': { um05: 100000, um50: 700 },
+};
+
+// 初始化管制圖分頁（切換 tab 時呼叫）
+function initChartPage() {
+  // 初始化區域選單
+  const sel = document.getElementById('chartZoneKey');
+  if (sel && sel.options.length <= 1) {
+    const zones = Object.values(config.zones || {}).flat();
+    sel.innerHTML = zones.map(z =>
+      `<option value="${z.key}" ${z.key.includes('100K') && z.key.startsWith('2F') ? 'selected' : ''}>${z.name}</option>`
+    ).join('');
+  }
+  updateChartLimits();
+  renderChart();
+}
+
+function updateChartLimits() {
+  const zoneKey = document.getElementById('chartZoneKey')?.value;
+  const lim = CHART_LIMITS[zoneKey] || { um05: 10000, um50: 70 };
+  const inp05 = document.getElementById('chartLimit05');
+  const inp50 = document.getElementById('chartLimit50');
+  if (inp05 && !inp05.dataset.userSet) inp05.value = lim.um05;
+  if (inp50 && !inp50.dataset.userSet) inp50.value = lim.um50;
+}
+
+// 取得管制圖的日期範圍
+function getChartRange() {
+  const mode = document.getElementById('chartRange')?.value || 'month';
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  if (mode === 'month') {
+    return {
+      from: new Date(y, m, 1).toISOString().split('T')[0],
+      to:   new Date(y, m+1, 0).toISOString().split('T')[0]
+    };
+  }
+  if (mode === 'last3') {
+    return {
+      from: new Date(y, m-2, 1).toISOString().split('T')[0],
+      to:   new Date(y, m+1, 0).toISOString().split('T')[0]
+    };
+  }
+  if (mode === 'quarter') {
+    const qs = Math.floor(m/3)*3;
+    return {
+      from: new Date(y, qs, 1).toISOString().split('T')[0],
+      to:   new Date(y, qs+3, 0).toISOString().split('T')[0]
+    };
+  }
+  return {};
+}
+
+async function renderChart() {
+  const wrap = document.getElementById('chartContent');
+  const zoneKey = document.getElementById('chartZoneKey')?.value;
+  if (!zoneKey) return;
+
+  wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt2)">
+    <div style="font-size:28px">⏳</div>
+    <div style="margin-top:8px;font-size:13px">載入資料中...</div>
+  </div>`;
+
+  try {
+    const range = getChartRange();
+    const r = await fetch(getGasUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getRecords', zoneKey, limit: 500, ...range })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error);
+    chartData = result.records || [];
+    buildChartHTML(zoneKey);
+  } catch(e) {
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red)">
+      ❌ 載入失敗：${e.message}
+      <br><button onclick="renderChart()" style="margin-top:12px;padding:8px 20px;
+        background:var(--acc);color:#fff;border:none;border-radius:8px;
+        font-size:13px;cursor:pointer">重試</button>
+    </div>`;
+  }
+}
+
+function buildChartHTML(zoneKey) {
+  const wrap = document.getElementById('chartContent');
+  const limit05 = Number(document.getElementById('chartLimit05')?.value) || 10000;
+  const limit50 = Number(document.getElementById('chartLimit50')?.value) || 70;
+
+  if (!chartData.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt3)">
+      <div style="font-size:36px">📊</div>
+      <div style="margin-top:8px">此期間無量測資料</div>
+    </div>`;
+    return;
+  }
+
+  // 整理資料：按日期排序，取得所有測點
+  const allDates = [...new Set(chartData.map(g => g.date))].sort();
+  const allPoints = [...new Set(chartData.flatMap(g => g.points.map(p => p.label)))];
+
+  // 建立資料矩陣 {日期 → {測點 → {v05,v50,remark}}}
+  const matrix = {};
+  chartData.forEach(g => {
+    if (!matrix[g.date]) matrix[g.date] = {};
+    g.points.forEach(p => {
+      matrix[g.date][p.label] = { v05: p.v05, v50: p.v50, remark: p.remark || '' };
+    });
+  });
+
+  // 產生 0.5μm 和 5μm 各自的 table + chart
+  wrap.innerHTML =
+    buildSingleChart('0.5 μm', allDates, allPoints, matrix, 'v05', limit05, '#0066cc') +
+    '<div style="height:20px"></div>' +
+    buildSingleChart('5 μm', allDates, allPoints, matrix, 'v50', limit50, '#cc6600');
+}
+
+function buildSingleChart(title, dates, points, matrix, valKey, limit, color) {
+  const limitKey = valKey === 'v05' ? '05' : '50';
+
+  // 計算每個日期每個測點的值
+  const series = points.map(pt => ({
+    label: pt,
+    values: dates.map(d => matrix[d]?.[pt]?.[valKey] ?? null),
+    remarks: dates.map(d => matrix[d]?.[pt]?.remark ?? '')
+  }));
+
+  // SVG 折線圖
+  const W = 600, H = 180, PL = 50, PT = 20, PR = 20, PB = 40;
+  const chartW = W - PL - PR;
+  const chartH = H - PT - PB;
+
+  const allVals = series.flatMap(s => s.values).filter(v => v !== null && v !== undefined);
+  const maxVal = Math.max(...allVals, limit * 1.1);
+  const minVal = 0;
+
+  const xStep = dates.length > 1 ? chartW / (dates.length - 1) : chartW / 2;
+  const yScale = v => PT + chartH - (chartH * (v - minVal) / (maxVal - minVal));
+  const xPos = i => PL + (dates.length > 1 ? i * xStep : chartW / 2);
+
+  // 顏色池
+  const colors = ['#0066cc','#cc6600','#009944','#cc0044','#6600cc','#cc9900','#006666','#cc3333','#336699','#669933'];
+
+  let svgLines = '';
+  let svgDots = '';
+
+  series.forEach((s, si) => {
+    const c = colors[si % colors.length];
+    const pts = s.values.map((v, i) => v !== null ? `${xPos(i)},${yScale(v)}` : null).filter(Boolean);
+
+    // 折線
+    if (pts.length > 1) {
+      svgLines += `<polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.8"/>`;
+    }
+
+    // 點（可 hover 顯示 tooltip）
+    s.values.forEach((v, i) => {
+      if (v === null) return;
+      const isOver = v > limit;
+      const remark = s.remarks[i];
+      const tip = `${s.label}: ${v}${remark ? ' | 備註: ' + remark : ''}`;
+      svgDots += `<circle cx="${xPos(i)}" cy="${yScale(v)}" r="${isOver?5:3.5}"
+        fill="${isOver?'#cc0000':c}" stroke="white" stroke-width="1"
+        style="cursor:pointer" data-tip="${tip.replace(/"/g,'&quot;')}"
+        onmouseenter="showTip(event,this.getAttribute('data-tip'))"
+        onmouseleave="hideTip()"/>`;
+    });
+  });
+
+  // 上限線
+  const limitY = yScale(limit);
+  const limitLine = `<line x1="${PL}" y1="${limitY}" x2="${W-PR}" y2="${limitY}"
+    stroke="#cc0000" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.8"/>
+    <text x="${W-PR+2}" y="${limitY+4}" font-size="9" fill="#cc0000">${limit}</text>`;
+
+  // X 軸標籤（日期）
+  const xLabels = dates.map((d, i) => {
+    const md = d.slice(5); // mm-dd
+    return `<text x="${xPos(i)}" y="${H-5}" text-anchor="middle" font-size="9" fill="#666">${md}</text>`;
+  }).join('');
+
+  // Y 軸標籤
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => {
+    const val = Math.round(minVal + t * (maxVal - minVal));
+    const y = PT + chartH * (1 - t);
+    return `<text x="${PL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="#888">${val >= 1000 ? (val/1000).toFixed(0)+'K' : val}</text>
+      <line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#eee" stroke-width="1"/>`;
+  }).join('');
+
+  const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;overflow:visible">
+    ${yTicks}
+    ${svgLines}
+    ${limitLine}
+    ${svgDots}
+    ${xLabels}
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+chartH}" stroke="#ccc" stroke-width="1"/>
+    <line x1="${PL}" y1="${PT+chartH}" x2="${W-PR}" y2="${PT+chartH}" stroke="#ccc" stroke-width="1"/>
+  </svg>`;
+
+  // 圖例
+  const legend = series.map((s, si) => {
+    const c = colors[si % colors.length];
+    return `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px;color:var(--txt2)">
+      <span style="width:12px;height:3px;background:${c};border-radius:2px;display:inline-block"></span>
+      ${s.label}
+    </span>`;
+  }).join('');
+
+  // 資料表格
+  const tableRows = points.map(pt => {
+    const cells = dates.map(d => {
+      const v = matrix[d]?.[pt]?.[valKey];
+      const remark = matrix[d]?.[pt]?.remark || '';
+      const isOver = v !== null && v !== undefined && v !== '' && Number(v) > limit;
+      const tip = remark ? ` title="${remark.replace(/"/g,'&quot;')}"` : '';
+      const style = isOver
+        ? 'background:#ffeeee;color:#cc0000;font-weight:700'
+        : 'color:var(--txt)';
+      return `<td${tip} style="padding:5px 8px;text-align:center;font-family:var(--mono);
+        font-size:12px;border-bottom:1px solid var(--blue4);${style};cursor:${remark?'help':'default'};
+        position:relative"
+        ${remark?`onmouseenter="showTip(event,'備註：${remark.replace(/'/g,"&#39;")}')" onmouseleave="hideTip()"`:''}>
+        ${v !== null && v !== undefined && v !== '' ? v : '—'}${remark?'<sup style="color:var(--acc);font-size:9px">●</sup>':''}
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="padding:5px 8px;font-size:12px;color:var(--txt2);border-bottom:1px solid var(--blue4);
+        white-space:nowrap;font-weight:600">${pt}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const dateHeaders = dates.map(d =>
+    `<th style="padding:5px 8px;font-size:11px;font-weight:600;color:var(--acc);
+      white-space:nowrap;min-width:50px">${d.slice(5)}</th>`
+  ).join('');
+
+  return `<div style="margin-bottom:16px;background:var(--white);border:2px solid var(--border);
+    border-radius:10px;overflow:hidden;box-shadow:var(--shadow)">
+    <!-- 標題 -->
+    <div style="padding:10px 14px;background:var(--blue5);border-bottom:1px solid var(--blue4);
+      display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--blue1)">■ ${title} 管制圖</div>
+      <div style="font-size:11px;color:var(--red)">── 上限：${limit}</div>
+    </div>
+    <!-- 折線圖 -->
+    <div style="padding:12px 14px 4px;overflow-x:auto">${svg}</div>
+    <!-- 圖例 -->
+    <div style="padding:4px 14px 8px;overflow-x:auto">${legend}</div>
+    <!-- 資料表格 -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:300px">
+        <thead>
+          <tr style="background:var(--bg)">
+            <th style="padding:5px 8px;font-size:11px;font-weight:600;color:var(--txt2);text-align:left">測點</th>
+            ${dateHeaders}
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div style="padding:6px 14px;font-size:10px;color:var(--txt3)">
+      超標以紅色標示，有備註的數值右上角顯示 ●，移入可查看備註內容
+    </div>
+  </div>`;
+}
+
+// Tooltip 功能
+let tipEl = null;
+function showTip(event, text) {
+  if (!tipEl) {
+    tipEl = document.createElement('div');
+    tipEl.style.cssText = 'position:fixed;background:#333;color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;line-height:1.5;max-width:200px;z-index:9999;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+    document.body.appendChild(tipEl);
+  }
+  tipEl.textContent = text;
+  tipEl.style.display = 'block';
+  moveTip(event);
+}
+function moveTip(event) {
+  if (!tipEl) return;
+  const x = event.clientX + 12;
+  const y = event.clientY - 28;
+  tipEl.style.left = Math.min(x, window.innerWidth - 220) + 'px';
+  tipEl.style.top  = Math.max(y, 4) + 'px';
+}
+function hideTip() {
+  if (tipEl) tipEl.style.display = 'none';
+}
+document.addEventListener('mousemove', moveTip);
 
 function updateBreadcrumb(){
   const bc=document.getElementById('breadcrumb');
