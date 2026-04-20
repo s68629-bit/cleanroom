@@ -2,11 +2,11 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v3.0                                  ║
+  ║  Version : v3.1                                  ║
   ║  Date    : 2026-04-20                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 人員名單改從GAS後端讀取，跨裝置同步            ║
+  ║  Changes : 記錄頁折疊/批次刪除/日期篩選            ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -392,7 +392,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.0 · 2026-04-20</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.1 · 2026-04-20</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -479,8 +479,59 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
 
 <!-- ══ PAGE: RECORDS ══ -->
 <div class="page" id="page-records">
-  <div class="sec-hd" id="lbl-history">量測記錄</div>
-  <div id="recListWrap">
+
+  <!-- 篩選工具列 -->
+  <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <!-- 日期範圍選擇 -->
+    <select id="recFilterMode" onchange="onRecFilterChange()"
+      style="background:var(--white);border:2px solid var(--border);border-radius:8px;
+      padding:7px 10px;font-size:13px;color:var(--txt);font-family:var(--sans);outline:none;cursor:pointer">
+      <option value="month">本月</option>
+      <option value="last3">近3個月</option>
+      <option value="quarter">本季</option>
+      <option value="custom">自訂月份</option>
+      <option value="all">全部</option>
+    </select>
+
+    <!-- 自訂月份（預設隱藏）-->
+    <div id="recCustomRange" style="display:none;display:flex;gap:6px;align-items:center">
+      <input type="month" id="recFromMonth"
+        style="background:var(--white);border:2px solid var(--border);border-radius:8px;
+        padding:6px 10px;font-size:13px;color:var(--txt);font-family:var(--sans);outline:none">
+      <span style="color:var(--txt2);font-size:12px">～</span>
+      <input type="month" id="recToMonth"
+        style="background:var(--white);border:2px solid var(--border);border-radius:8px;
+        padding:6px 10px;font-size:13px;color:var(--txt);font-family:var(--sans);outline:none">
+      <button onclick="renderRecords()"
+        style="padding:6px 14px;background:var(--acc);color:#fff;border:none;
+        border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--sans)">查詢</button>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <!-- 批次刪除按鈕（勾選後顯示）-->
+    <div id="batchDeleteBar" style="display:none;align-items:center;gap:8px">
+      <span id="batchCountLabel" style="font-size:13px;color:var(--txt2)">已選 0 筆</span>
+      <button onclick="batchDelete()"
+        style="padding:6px 14px;background:var(--red);color:#fff;border:none;
+        border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--sans);font-weight:600">
+        🗑️ 刪除選取
+      </button>
+      <button onclick="cancelBatchSelect()"
+        style="padding:6px 14px;background:var(--bg);color:var(--txt2);
+        border:2px solid var(--border);border-radius:8px;font-size:13px;
+        cursor:pointer;font-family:var(--sans)">取消</button>
+    </div>
+
+    <!-- 全選/批次選擇按鈕 -->
+    <button id="batchSelectBtn" onclick="toggleBatchMode()"
+      style="padding:6px 14px;background:var(--bg);color:var(--txt2);
+      border:2px solid var(--border);border-radius:8px;font-size:13px;
+      cursor:pointer;font-family:var(--sans)">☑️ 批次選擇</button>
+  </div>
+
+  <!-- 記錄列表 -->
+  <div id="recListWrap" style="padding-bottom:80px">
     <div style="text-align:center;padding:40px;color:var(--txt3)">
       <div style="font-size:36px">📋</div>
       <div style="margin-top:8px;font-size:13px" id="lbl-noRec">尚無量測記錄</div>
@@ -1609,9 +1660,52 @@ async function sendReport(){
 // RECORDS
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
-// RECORDS PAGE — 從 GAS 讀取，支援修改/刪除
+// RECORDS PAGE — 從 GAS 讀取，支援修改/刪除/篩選/批次
 // ══════════════════════════════════════════════════════
-let gasRecords = [];  // 從 GAS 讀取的記錄快取
+let gasRecords = [];
+let batchMode = false;
+let batchSelected = new Set();  // 選取的 group index
+
+// 取得篩選日期範圍
+function getRecFilterRange() {
+  const mode = document.getElementById('recFilterMode')?.value || 'month';
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-based
+
+  if (mode === 'month') {
+    const from = new Date(y, m, 1).toISOString().split('T')[0];
+    const to   = new Date(y, m+1, 0).toISOString().split('T')[0];
+    return { from, to };
+  }
+  if (mode === 'last3') {
+    const from = new Date(y, m-2, 1).toISOString().split('T')[0];
+    const to   = new Date(y, m+1, 0).toISOString().split('T')[0];
+    return { from, to };
+  }
+  if (mode === 'quarter') {
+    const qStart = Math.floor(m / 3) * 3;
+    const from = new Date(y, qStart, 1).toISOString().split('T')[0];
+    const to   = new Date(y, qStart+3, 0).toISOString().split('T')[0];
+    return { from, to };
+  }
+  if (mode === 'custom') {
+    const from = document.getElementById('recFromMonth')?.value;
+    const to   = document.getElementById('recToMonth')?.value;
+    if (from && to) return {
+      from: from + '-01',
+      to: to + '-' + new Date(parseInt(to.split('-')[0]), parseInt(to.split('-')[1]), 0).getDate()
+    };
+  }
+  return {}; // all
+}
+
+function onRecFilterChange() {
+  const mode = document.getElementById('recFilterMode')?.value;
+  const customDiv = document.getElementById('recCustomRange');
+  if (customDiv) customDiv.style.display = mode === 'custom' ? 'flex' : 'none';
+  if (mode !== 'custom') renderRecords();
+}
 
 async function renderRecords(){
   const wrap = document.getElementById('recListWrap');
@@ -1620,12 +1714,18 @@ async function renderRecords(){
     <div style="margin-top:8px;font-size:13px">載入記錄中...</div>
   </div>`;
 
+  // 重置批次選取
+  batchMode = false;
+  batchSelected.clear();
+  updateBatchBar();
+
   try {
     const gasUrl = getGasUrl();
+    const range = getRecFilterRange();
     const r = await fetch(gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'getRecords', limit: 100 })
+      body: JSON.stringify({ action: 'getRecords', limit: 200, ...range })
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const result = await r.json();
@@ -1648,12 +1748,16 @@ function renderRecordList(){
   if (!gasRecords.length) {
     wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt3)">
       <div style="font-size:36px">📋</div>
-      <div style="margin-top:8px;font-size:14px;color:var(--txt2);font-weight:600">尚無量測記錄</div>
+      <div style="margin-top:8px;font-size:14px;color:var(--txt2);font-weight:600">此期間無量測記錄</div>
     </div>`;
     return;
   }
 
-  wrap.innerHTML = '<div style="padding:0 0 80px">' +
+  const totalCount = gasRecords.length;
+  wrap.innerHTML = `<div style="padding:8px 16px 2px;font-size:12px;color:var(--txt2)">
+    共 ${totalCount} 筆記錄
+  </div>` +
+    '<div style="padding-bottom:80px">' +
     gasRecords.map((g, gi) => {
       const ptDone = g.points.filter(p => p.v05 !== '' && p.v05 !== null).length;
       const isOver = g.points.some(p => {
@@ -1661,62 +1765,178 @@ function renderRecordList(){
         return (lim.um05 && Number(p.v05) > lim.um05) ||
                (lim.um50 && Number(p.v50) > lim.um50);
       });
-      return `<div style="margin:0 16px 10px;background:var(--white);
-        border:2px solid ${isOver?'var(--red)':'var(--border)'};
-        border-radius:10px;overflow:hidden;box-shadow:var(--shadow)">
-        <!-- 群組標題 -->
-        <div style="display:flex;align-items:center;padding:12px 14px;
-          background:${isOver?'#fff0f0':'var(--blue5)'};
-          border-bottom:1px solid ${isOver?'#ffcccc':'var(--blue4)'}">
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:700;color:var(--txt)">
-              ${isOver?'⚠️ ':''} ${g.zoneName||g.zoneKey}
+      const isSelected = batchSelected.has(gi);
+      const borderColor = isSelected ? 'var(--acc)' : isOver ? 'var(--red)' : 'var(--border)';
+      const headerBg = isSelected ? 'var(--blue5)' : isOver ? '#fff0f0' : 'var(--bg)';
+
+      return `<div id="recGroup_${gi}" style="margin:0 16px 8px;background:var(--white);
+        border:2px solid ${borderColor};border-radius:10px;overflow:hidden;
+        box-shadow:var(--shadow);transition:.15s">
+
+        <!-- 群組標題列（可點擊展開/折疊）-->
+        <div style="display:flex;align-items:center;padding:11px 14px;
+          background:${headerBg};cursor:pointer;user-select:none"
+          onclick="toggleRecGroup(${gi}, event)">
+
+          <!-- 批次選取勾選框 -->
+          <div id="recCheck_${gi}" style="display:${batchMode?'flex':'none'};
+            width:22px;height:22px;border-radius:5px;border:2px solid ${isSelected?'var(--acc)':'var(--border)'};
+            background:${isSelected?'var(--acc)':'transparent'};
+            align-items:center;justify-content:center;margin-right:10px;flex-shrink:0;transition:.15s">
+            ${isSelected?'<span style="color:#fff;font-size:13px">✓</span>':''}
+          </div>
+
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--txt);
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${isOver?'⚠️ ':''}<span style="color:var(--acc)">${g.date}</span>
+              <span style="color:var(--txt2);font-weight:400;margin-left:6px">${g.zoneName||g.zoneKey}</span>
             </div>
-            <div style="font-size:11px;color:var(--txt2);margin-top:2px">
-              ${g.date} ｜ ${g.operator||'廠務'} ｜ ${ptDone}/${g.points.length} 點
+            <div style="font-size:11px;color:var(--txt2);margin-top:1px">
+              ${g.operator||'廠務'} ｜ ${ptDone}/${g.points.length} 點
+              ${isOver?'<span style="color:var(--red);margin-left:4px">有超標</span>':''}
             </div>
           </div>
-          <div style="display:flex;gap:6px">
-            <button onclick="editGroup(${gi})"
-              style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--acc);
-              background:var(--blue5);color:var(--acc);font-size:12px;
-              cursor:pointer;font-family:var(--sans);font-weight:600">
-              ✏️ 修改
-            </button>
-            <button onclick="deleteGroup(${gi})"
-              style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--red);
-              background:#fff0f0;color:var(--red);font-size:12px;
-              cursor:pointer;font-family:var(--sans);font-weight:600">
-              🗑️ 刪除
-            </button>
+
+          <!-- 展開/操作按鈕 -->
+          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+            ${!batchMode ? `
+            <button onclick="event.stopPropagation();editGroup(${gi})"
+              style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--acc);
+              background:var(--blue5);color:var(--acc);font-size:11px;
+              cursor:pointer;font-family:var(--sans)">✏️</button>
+            <button onclick="event.stopPropagation();deleteGroup(${gi})"
+              style="padding:4px 10px;border-radius:6px;border:1.5px solid var(--red);
+              background:#fff0f0;color:var(--red);font-size:11px;
+              cursor:pointer;font-family:var(--sans)">🗑️</button>
+            ` : ''}
+            <div id="recArrow_${gi}" style="font-size:14px;color:var(--txt3);
+              transition:transform .2s;transform:rotate(0deg)">▼</div>
           </div>
         </div>
-        <!-- 點位列表 -->
-        <div style="padding:8px 14px">
+
+        <!-- 點位詳細（預設折疊）-->
+        <div id="recDetail_${gi}" style="display:none;padding:8px 14px">
           ${g.points.map(p => {
             const lim = getLimits(g.zoneKey);
             const over05 = lim.um05 && Number(p.v05) > lim.um05;
             const over50 = lim.um50 && Number(p.v50) > lim.um50;
             return `<div style="display:flex;align-items:center;gap:8px;
-              padding:6px 0;border-bottom:1px solid #f0f4f8">
-              <div style="width:28px;height:28px;border-radius:50%;
-                background:var(--ylw);display:flex;align-items:center;
-                justify-content:center;font-size:10px;font-weight:700;
-                color:#fff;flex-shrink:0">${p.label}</div>
-              <div style="flex:1;font-size:12px;color:var(--txt2)">${p.name||'—'}</div>
-              <div style="font-family:var(--mono);font-size:12px;
+              padding:5px 0;border-bottom:1px solid var(--blue4)">
+              <div style="width:26px;height:26px;border-radius:50%;
+                background:${(over05||over50)?'var(--red)':'var(--grn)'};
+                display:flex;align-items:center;justify-content:center;
+                font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${p.label}</div>
+              <div style="flex:1;font-size:12px;color:var(--txt)">${p.name||'—'}</div>
+              <div style="font-family:var(--mono);font-size:12px;font-weight:600;
                 color:${over05?'var(--red)':'var(--grn)'}">
-                0.5: ${p.v05!==''&&p.v05!==null?p.v05:'—'}
+                ${p.v05!==''&&p.v05!==null?p.v05:'—'}
               </div>
-              <div style="font-family:var(--mono);font-size:12px;
+              <div style="font-size:10px;color:var(--txt3)">0.5μm</div>
+              <div style="font-family:var(--mono);font-size:12px;font-weight:600;
                 color:${over50?'var(--red)':'var(--grn)'}">
-                5.0: ${p.v50!==''&&p.v50!==null?p.v50:'—'}
+                ${p.v50!==''&&p.v50!==null?p.v50:'—'}
               </div>
+              <div style="font-size:10px;color:var(--txt3)">5μm</div>
             </div>`;
           }).join('')}
         </div>
       </div>`;
     }).join('') + '</div>';
+}
+
+// 展開/折疊單一群組
+function toggleRecGroup(gi, event) {
+  if (batchMode) {
+    // 批次模式：點擊切換選取
+    toggleBatchSelect(gi);
+    return;
+  }
+  const detail = document.getElementById('recDetail_' + gi);
+  const arrow  = document.getElementById('recArrow_' + gi);
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+// ── 批次選取 ──
+function toggleBatchMode() {
+  batchMode = !batchMode;
+  batchSelected.clear();
+  const btn = document.getElementById('batchSelectBtn');
+  if (btn) btn.textContent = batchMode ? '✕ 取消選取' : '☑️ 批次選擇';
+  updateBatchBar();
+  renderRecordList();
+}
+
+function cancelBatchSelect() {
+  batchMode = false;
+  batchSelected.clear();
+  const btn = document.getElementById('batchSelectBtn');
+  if (btn) btn.textContent = '☑️ 批次選擇';
+  updateBatchBar();
+  renderRecordList();
+}
+
+function toggleBatchSelect(gi) {
+  if (batchSelected.has(gi)) {
+    batchSelected.delete(gi);
+  } else {
+    batchSelected.add(gi);
+  }
+  updateBatchBar();
+  // 更新這個卡片的樣式
+  const card = document.getElementById('recGroup_' + gi);
+  const check = document.getElementById('recCheck_' + gi);
+  const isSelected = batchSelected.has(gi);
+  if (card) card.style.borderColor = isSelected ? 'var(--acc)' : 'var(--border)';
+  if (check) {
+    check.style.borderColor = isSelected ? 'var(--acc)' : 'var(--border)';
+    check.style.background = isSelected ? 'var(--acc)' : 'transparent';
+    check.innerHTML = isSelected ? '<span style="color:#fff;font-size:13px">✓</span>' : '';
+  }
+}
+
+function updateBatchBar() {
+  const bar = document.getElementById('batchDeleteBar');
+  const label = document.getElementById('batchCountLabel');
+  const btn = document.getElementById('batchSelectBtn');
+  if (bar) bar.style.display = (batchMode && batchSelected.size > 0) ? 'flex' : 'none';
+  if (label) label.textContent = '已選 ' + batchSelected.size + ' 筆';
+  if (btn) btn.style.display = batchMode ? 'none' : 'block';
+}
+
+async function batchDelete() {
+  if (!batchSelected.size) return;
+  const count = batchSelected.size;
+  if (!confirm(`確定刪除選取的 ${count} 筆記錄？
+此動作會從 Google Sheets 永久刪除，無法復原。`)) return;
+
+  showLoading('批次刪除中...');
+  let allRowNums = [];
+  batchSelected.forEach(gi => {
+    const g = gasRecords[gi];
+    if (g) allRowNums = allRowNums.concat(g.rowNums || g.points.map(p => p.rowNum));
+  });
+
+  try {
+    const r = await fetch(getGasUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'deleteRecord', rowNums: allRowNums })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || '刪除失敗');
+    hideLoading();
+    toast('🗑️ 已刪除 ' + count + ' 筆記錄');
+    cancelBatchSelect();
+    await renderRecords();
+  } catch(e) {
+    hideLoading();
+    toast('❌ 刪除失敗：' + e.message, true);
+  }
 }
 
 function getLimits(zoneKey) {
