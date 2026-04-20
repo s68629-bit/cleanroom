@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>無塵室點位設定工具</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  /* ── Blue-White Industrial Palette ── */
+  --bg:       #f0f4f8;
+  --bg2:      #e4ecf4;
+  --white:    #ffffff;
+  --s1:       #1a4f8a;   /* primary blue */
+  --s2:       #2563b0;   /* mid blue */
+  --s3:       #3b7dd8;   /* light blue */
+  --s4:       #dbeafe;   /* very light blue bg */
+  --s5:       #eff6ff;   /* near-white blue */
+  --border:   #b8cfe8;
+  --border2:  #93b8df;
+  --acc:      #0066cc;
+  --acc2:     #0052a3;
+  --grn:      #059669;
+  --grn-bg:   #d1fae5;
+  --ylw:      #d97706;
+  --ylw-bg:   #fef3c7;
+  --red:      #dc2626;
+  --red-bg:   #fee2e2;
+  --txt:      #0f2d4e;
+  --txt2:     #3d6185;
+  --txt3:     #7aa0c0;
+  --shadow:   0 2px 8px rgba(26,79,138,0.12);
+  --shadow2:  0 4px 20px rgba(26,79,138,0.18);
+  --mono:     'JetBrains Mono', monospace;
+  --sans:     'Noto Sans TC', sans-serif;
+  --r:        8px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--sans);background:var(--bg);color:var(--txt);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:15px}
+
+/* ─── TOPBAR ─────────────────── */
+.topbar{
+  display:flex;align-items:center;gap:10px;padding:0 18px;height:56px;
+  background:var(--s1);flex-shrink:0;flex-wrap:wrap;
+  box-shadow:0 2px 12px rgba(26,79,138,0.3);
+}
+.logo{
+  font-family:var(--mono);font-size:15px;font-weight:600;color:#fff;
+  white-space:nowrap;margin-right:6px;letter-spacing:0.5px;
+}
+.logo span{color:#90caff;font-weight:400}
+.sep{width:1px;height:24px;background:rgba(255,255,255,0.2);flex-shrink:0}
+.tbtn{
+  padding:7px 16px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.25);
+  background:rgba(255,255,255,0.1);color:#fff;font-size:14px;
+  font-family:var(--sans);cursor:pointer;white-space:nowrap;transition:.15s all;
+  font-weight:500;
+}
+.tbtn:hover{background:rgba(255,255,255,0.22);border-color:rgba(255,255,255,0.5)}
+.tbtn.primary{background:#fff;border-color:#fff;color:var(--s1);font-weight:700}
+.tbtn.primary:hover{background:#dbeafe;border-color:#dbeafe}
+.tbtn.success{background:#059669;border-color:#059669;color:#fff;font-weight:700}
+.tbtn.success:hover{background:#047857}
+.tbtn.warn{background:#d97706;border-color:#d97706;color:#fff;font-weight:700}
+.tbtn.danger{background:rgba(220,38,38,0.15);border-color:#dc2626;color:#fca5a5}
+.tbtn.danger:hover{background:#dc2626;color:#fff}
+
+/* ─── LAYOUT ─────────────────── */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* ─── LEFT TREE ─────────────── */
+.tree-panel{
+  width:260px;flex-shrink:0;background:var(--white);
+  border-right:2px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
+}
+.tree-head{
+  padding:12px 16px;border-bottom:2px solid var(--s4);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--s5);
+}
+.tree-head-label{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--s2);text-transform:uppercase}
+.tree-scroll{flex:1;overflow-y:auto;padding:8px 0}
+
+.floor-item{margin-bottom:2px}
+.floor-header{
+  display:flex;align-items:center;padding:10px 16px;cursor:pointer;gap:8px;
+  font-size:14px;font-weight:700;color:var(--s1);transition:.15s;user-select:none;
+  border-left:3px solid transparent;
+}
+.floor-header:hover{background:var(--s4);border-left-color:var(--s3)}
+.floor-header.open{background:var(--s5);border-left-color:var(--s1)}
+.floor-header .caret{font-size:11px;transition:.2s;flex-shrink:0;color:var(--txt3)}
+.floor-header.open .caret{transform:rotate(90deg);color:var(--s1)}
+.floor-header .floor-label{flex:1}
+.floor-header .floor-actions{display:none;gap:4px}
+.floor-header:hover .floor-actions{display:flex}
+.mini-btn{
+  background:none;border:1.5px solid var(--border);color:var(--txt2);
+  cursor:pointer;font-size:12px;padding:2px 8px;border-radius:4px;line-height:1.4;
+  font-family:var(--sans);transition:.15s;
+}
+.mini-btn:hover{color:var(--acc);border-color:var(--acc);background:var(--s4)}
+.mini-btn.del:hover{color:var(--red);border-color:var(--red);background:var(--red-bg)}
+
+.zone-list{padding-left:0;display:none}
+.zone-list.open{display:block}
+.zone-item{
+  display:flex;align-items:center;padding:9px 16px 9px 32px;cursor:pointer;
+  font-size:13px;color:var(--txt2);transition:.15s;gap:7px;
+  border-left:3px solid transparent;border-bottom:1px solid #f0f4f8;
+}
+.zone-item:hover{background:var(--s4);color:var(--txt)}
+.zone-item.active{background:var(--s4);color:var(--acc);border-left-color:var(--acc);font-weight:600}
+.zone-item .zone-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zone-item .zone-count{
+  font-family:var(--mono);font-size:11px;color:var(--txt3);
+  background:var(--bg2);padding:2px 7px;border-radius:10px;
+}
+.zone-item.active .zone-count{background:var(--s3);color:#fff}
+.zone-item .zone-actions{display:none;gap:3px}
+.zone-item:hover .zone-actions{display:flex}
+.add-zone-btn{
+  display:flex;align-items:center;padding:8px 16px 8px 32px;cursor:pointer;
+  font-size:12px;color:var(--txt3);gap:5px;transition:.15s;
+}
+.add-zone-btn:hover{color:var(--acc);background:var(--s5)}
+
+/* ─── CANVAS AREA ─────────────── */
+.canvas-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.canvas-toolbar{
+  display:flex;align-items:center;gap:8px;padding:8px 16px;
+  background:var(--white);border-bottom:2px solid var(--border);
+  flex-shrink:0;flex-wrap:wrap;box-shadow:var(--shadow);
+}
+.mode-btn{
+  padding:7px 16px;border-radius:6px;border:1.5px solid var(--border);
+  background:var(--white);color:var(--txt2);font-size:14px;cursor:pointer;
+  transition:.15s;display:flex;align-items:center;gap:6px;font-family:var(--sans);font-weight:500;
+}
+.mode-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--s5)}
+.mode-btn.active{background:var(--ylw-bg);border-color:var(--ylw);color:var(--ylw);font-weight:700}
+.zoom-btn{
+  width:32px;height:32px;border-radius:6px;border:1.5px solid var(--border);
+  background:var(--white);color:var(--txt2);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:.15s;
+}
+.zoom-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--s5)}
+.zoom-label{
+  font-family:var(--mono);font-size:13px;color:var(--txt2);
+  min-width:48px;text-align:center;font-weight:600;
+}
+.zone-ctx-tag{
+  margin-left:4px;padding:5px 14px;border-radius:20px;
+  background:var(--s4);color:var(--s1);font-size:13px;font-weight:600;
+  border:1.5px solid var(--border2);
+}
+
+.canvas-wrap{
+  flex:1;position:relative;overflow:hidden;display:flex;
+  align-items:center;justify-content:center;background:var(--bg);
+}
+.empty-hint{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  color:var(--txt3);pointer-events:none;
+}
+.empty-hint .e-icon{font-size:64px;opacity:0.4}
+.empty-hint .e-msg{font-size:16px;color:var(--txt2);font-weight:500}
+.empty-hint .e-sub{font-size:13px;opacity:0.7}
+.canvas-wrap.has-content .empty-hint{display:none}
+#mainCanvas{position:absolute;top:0;left:0}
+.drop-overlay{
+  display:none;position:absolute;inset:0;background:rgba(0,102,204,0.08);
+  border:3px dashed var(--acc);pointer-events:none;z-index:10;
+  align-items:center;justify-content:center;font-size:18px;color:var(--acc);
+  font-weight:700;
+}
+.drop-overlay.show{display:flex}
+
+/* ─── RIGHT PANEL ─────────────── */
+.right-panel{
+  width:280px;flex-shrink:0;background:var(--white);
+  border-left:2px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
+}
+.rp-section{
+  padding:12px 16px;border-bottom:2px solid var(--s4);background:var(--s5);
+}
+.rp-label{
+  font-size:12px;font-weight:700;letter-spacing:2px;color:var(--s2);
+  text-transform:uppercase;margin-bottom:8px;
+}
+.rp-info{font-size:13px;color:var(--txt2);line-height:1.8}
+.rp-info b{color:var(--acc);font-family:var(--mono)}
+
+.pt-scroll{flex:1;overflow-y:auto}
+.pt-row{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;
+  border-bottom:1px solid var(--bg2);cursor:pointer;transition:.1s;
+}
+.pt-row:hover{background:var(--s5)}
+.pt-row.sel{background:var(--s4);border-left:3px solid var(--acc)}
+.pt-dot{
+  width:28px;height:28px;border-radius:50%;background:var(--ylw);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:#fff;flex-shrink:0;
+  font-family:var(--mono);box-shadow:0 2px 6px rgba(217,119,6,0.3);
+}
+.pt-info{flex:1;min-width:0}
+.pt-lbl{font-size:14px;font-weight:700;color:var(--txt)}
+.pt-nm{font-size:12px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.pt-xy{font-size:11px;color:var(--txt3);font-family:var(--mono);margin-top:1px}
+.pt-del{
+  background:none;border:1.5px solid var(--border);color:var(--txt3);
+  cursor:pointer;font-size:13px;padding:3px 8px;border-radius:4px;transition:.15s;
+}
+.pt-del:hover{color:var(--red);border-color:var(--red);background:var(--red-bg)}
+
+.edit-form{
+  padding:14px 16px;border-top:2px solid var(--s4);
+  flex-shrink:0;display:none;background:var(--s5);
+}
+.edit-form.show{display:block}
+.ef-label{
+  font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--s2);
+  text-transform:uppercase;margin-bottom:10px;
+}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;color:var(--txt2);margin-bottom:4px;font-weight:500}
+.field input{
+  width:100%;background:var(--white);border:1.5px solid var(--border);
+  border-radius:6px;padding:8px 11px;color:var(--txt);font-size:14px;
+  font-family:var(--sans);outline:none;transition:.15s;
+}
+.field input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,102,204,0.1)}
+.ef-btns{display:flex;gap:8px;margin-top:12px}
+.ef-btn{
+  flex:1;padding:9px;border-radius:6px;border:1.5px solid var(--border);
+  background:var(--white);color:var(--txt2);font-size:14px;cursor:pointer;
+  font-family:var(--sans);transition:.15s;font-weight:500;
+}
+.ef-btn.ok{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.ef-btn.ok:hover{background:var(--acc2)}
+.ef-btn.del{color:var(--red);border-color:var(--red)}
+.ef-btn.del:hover{background:var(--red);color:#fff}
+
+/* ─── STATUS BAR ─────────────── */
+.statusbar{
+  display:flex;gap:20px;padding:5px 18px;background:var(--s1);
+  border-top:2px solid var(--s2);font-size:12px;color:rgba(255,255,255,0.5);flex-shrink:0;
+}
+.statusbar span{color:rgba(255,255,255,0.85);font-family:var(--mono)}
+
+/* ─── MODALS ─────────────────── */
+.overlay{
+  display:none;position:fixed;inset:0;background:rgba(15,45,78,0.55);
+  z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px);
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--white);border:2px solid var(--border);border-radius:12px;
+  width:480px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;
+  box-shadow:var(--shadow2);
+}
+.modal-head{
+  padding:16px 20px;border-bottom:2px solid var(--s4);
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--s5);border-radius:10px 10px 0 0;
+}
+.modal-head h3{font-size:16px;font-weight:700;color:var(--s1)}
+.modal-body{flex:1;overflow:auto;padding:20px}
+.modal-foot{
+  padding:14px 20px;border-top:2px solid var(--s4);
+  display:flex;gap:8px;justify-content:flex-end;background:var(--bg);
+  border-radius:0 0 10px 10px;
+}
+.mfield{margin-bottom:14px}
+.mfield label{display:block;font-size:13px;color:var(--txt2);margin-bottom:5px;font-weight:600}
+.mfield input,.mfield select,.mfield textarea{
+  width:100%;background:var(--white);border:1.5px solid var(--border);
+  border-radius:6px;padding:9px 12px;color:var(--txt);font-size:14px;
+  font-family:var(--sans);outline:none;transition:.15s;
+}
+.mfield input:focus,.mfield select:focus,.mfield textarea:focus{
+  border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,102,204,0.1);
+}
+.mfield select option{background:var(--white)}
+.mfield textarea{resize:vertical;min-height:120px;font-size:13px;font-family:var(--mono)}
+
+/* Modal action buttons */
+.modal-foot .tbtn{
+  border:1.5px solid var(--border);background:var(--white);color:var(--txt);
+  padding:8px 18px;font-size:14px;
+}
+.modal-foot .tbtn:hover{border-color:var(--acc);color:var(--acc);background:var(--s5)}
+.modal-foot .tbtn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.modal-foot .tbtn.primary:hover{background:var(--acc2)}
+.modal-foot .tbtn.success{background:var(--grn);border-color:var(--grn);color:#fff}
+.modal-foot .tbtn.danger{background:var(--red);border-color:var(--red);color:#fff}
+
+pre.json-out{
+  background:var(--s1);border:2px solid var(--border);border-radius:8px;
+  padding:16px;font-size:12px;color:#90caff;overflow:auto;
+  max-height:320px;white-space:pre-wrap;word-break:break-all;
+  font-family:var(--mono);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--s3)}
+
+/* No points message */
+.no-pts-msg{
+  padding:28px 16px;text-align:center;color:var(--txt3);font-size:13px;line-height:2;
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">CLEANROOM <span>/ editor</span></div>
+  <div class="sep"></div>
+  <input type="file" id="bgFileInput" accept="image/*" style="display:none" onchange="uploadBg(this)">
+  <button class="tbtn" onclick="triggerBgUpload()">📂 上傳底圖</button>
+  <button class="tbtn" onclick="clearBg()">🗑 移除底圖</button>
+  <div class="sep"></div>
+  <button class="tbtn success" onclick="exportAll()">📤 匯出 all_config.json</button>
+  <button class="tbtn warn" onclick="openImport()">📥 匯入</button>
+  <div class="sep"></div>
+  <button class="tbtn" onclick="openHelp()">❓ 說明</button>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- LEFT: TREE -->
+  <div class="tree-panel">
+    <div class="tree-head">
+      <div class="tree-head-label">樓層 / 區域</div>
+      <button class="mini-btn" onclick="openAddFloor()" title="新增樓層">＋樓層</button>
+    </div>
+    <div class="tree-scroll" id="treeScroll"></div>
+  </div>
+
+  <!-- CENTER: CANVAS -->
+  <div class="canvas-area">
+    <div class="canvas-toolbar">
+      <button class="mode-btn" id="btnAdd" onclick="setMode('add')">✏️ 新增點位</button>
+      <button class="mode-btn" id="btnPan" onclick="setMode('pan')">✋ 平移</button>
+      <button class="mode-btn" id="btnSel" onclick="setMode('select')">🖱 選取</button>
+      <div class="sep" style="height:20px"></div>
+      <button class="zoom-btn" onclick="doZoom(1.2)">＋</button>
+      <div class="zoom-label" id="zoomLabel">100%</div>
+      <button class="zoom-btn" onclick="doZoom(1/1.2)">－</button>
+      <button class="zoom-btn" onclick="fitView()" title="全景">⊡</button>
+      <div class="sep" style="height:20px"></div>
+      <span style="font-size:11px;color:var(--txt2)" id="zoneCtxLabel">— 未選擇區域 —</span>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="empty-hint">
+        <div class="e-icon">🗺️</div>
+        <div class="e-msg">從左側選擇區域</div>
+        <div class="e-sub">再上傳底圖開始設定點位</div>
+      </div>
+      <div class="drop-overlay" id="dropOverlay">放開以上傳底圖</div>
+      <canvas id="mainCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- RIGHT: POINTS -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-label">點位清單</div>
+      <div class="rp-info" id="rpInfo">請先選擇左側區域</div>
+    </div>
+    <div class="pt-scroll" id="ptScroll"></div>
+    <div class="edit-form" id="editForm">
+      <div class="ef-label">編輯點位</div>
+      <div class="field"><label>編號標籤（如 #9）</label><input id="efLabel" oninput="liveEdit()"></div>
+      <div class="field"><label>點位名稱</label><input id="efName" oninput="liveEdit()"></div>
+      <div class="field"><label>唯一 ID</label><input id="efId" oninput="liveEdit()"></div>
+      <div class="ef-btns">
+        <button class="ef-btn del" onclick="deleteSelected()">刪除</button>
+        <button class="ef-btn ok" onclick="deselect()">完成 ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div>游標：<span id="stCursor">—</span></div>
+  <div>縮放：<span id="stZoom">100%</span></div>
+  <div>區域點位：<span id="stPts">0</span></div>
+  <div id="stMsg" style="flex:1;text-align:right"></div>
+</div>
+
+<!-- ── MODAL: ADD FLOOR ── -->
+<div class="overlay" id="modalFloor">
+  <div class="modal" style="width:360px">
+    <div class="modal-head"><h3 id="mFloorTitle">新增樓層</h3><button class="tbtn" onclick="closeModal('modalFloor')">✕</button></div>
+    <div class="modal-body">
+      <div class="mfield"><label>樓層名稱（如 2F、3F、1F）</label><input id="mFloorName" placeholder="2F"></div>
+      <div class="mfield"><label>顯示圖示（Emoji）</label><input id="mFloorIcon" placeholder="2️⃣" style="font-size:18px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" onclick="closeModal('modalFloor')">取消</button>
+      <button class="tbtn primary" onclick="confirmFloor()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: ADD ZONE ── -->
+<div class="overlay" id="modalZone">
+  <div class="modal" style="width:400px">
+    <div class="modal-head"><h3 id="mZoneTitle">新增區域</h3><button class="tbtn" onclick="closeModal('modalZone')">✕</button></div>
+    <div class="modal-body">
+      <div class="mfield"><label>區域名稱（如 R1 罩內）</label><input id="mZoneName" placeholder="R1 罩內"></div>
+      <div class="mfield"><label>區域 Key（唯一英數，如 2F_R1）</label><input id="mZoneKey" placeholder="2F_R1"></div>
+      <div class="mfield"><label>對應 Excel 工作表名稱</label><input id="mZoneSheet" placeholder="R1罩內"></div>
+      <div class="mfield"><label>量測頻率說明</label><input id="mZoneSub" placeholder="Class 10K｜9~11點"></div>
+      <div class="mfield"><label>圖示（Emoji）</label><input id="mZoneIcon" placeholder="🔴" style="font-size:18px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" onclick="closeModal('modalZone')">取消</button>
+      <button class="tbtn primary" onclick="confirmZone()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: EDIT FLOOR ── -->
+<div class="overlay" id="modalEditFloor">
+  <div class="modal" style="width:360px">
+    <div class="modal-head"><h3>編輯樓層</h3><button class="tbtn" onclick="closeModal('modalEditFloor')">✕</button></div>
+    <div class="modal-body">
+      <div class="mfield"><label>樓層名稱</label><input id="mEFloorName"></div>
+      <div class="mfield"><label>圖示</label><input id="mEFloorIcon" style="font-size:18px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn danger" onclick="deleteFloor()">刪除樓層</button>
+      <button class="tbtn" onclick="closeModal('modalEditFloor')">取消</button>
+      <button class="tbtn primary" onclick="confirmEditFloor()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: EDIT ZONE ── -->
+<div class="overlay" id="modalEditZone">
+  <div class="modal" style="width:400px">
+    <div class="modal-head"><h3>編輯區域</h3><button class="tbtn" onclick="closeModal('modalEditZone')">✕</button></div>
+    <div class="modal-body">
+      <div class="mfield"><label>區域名稱</label><input id="mEZoneName"></div>
+      <div class="mfield"><label>區域 Key（修改會影響已存資料）</label><input id="mEZoneKey"></div>
+      <div class="mfield"><label>Excel 工作表名稱</label><input id="mEZoneSheet"></div>
+      <div class="mfield"><label>說明文字</label><input id="mEZoneSub"></div>
+      <div class="mfield"><label>圖示</label><input id="mEZoneIcon" style="font-size:18px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn danger" onclick="deleteZone()">刪除區域</button>
+      <button class="tbtn" onclick="closeModal('modalEditZone')">取消</button>
+      <button class="tbtn primary" onclick="confirmEditZone()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: EXPORT ── -->
+<div class="overlay" id="modalExport">
+  <div class="modal" style="width:580px">
+    <div class="modal-head"><h3>📤 匯出 all_config.json</h3><button class="tbtn" onclick="closeModal('modalExport')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">
+        將此檔案命名為 <b style="color:var(--acc)">all_config.json</b> 上傳到你的 GitHub repo 根目錄。<br>
+        底圖圖片請另存為 <b style="color:var(--acc)">images/[zoneKey].png</b> 一起上傳。
+      </p>
+      <pre class="json-out" id="exportJson"></pre>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" onclick="copyExport()">📋 複製</button>
+      <button class="tbtn success" onclick="downloadExport()">💾 下載 all_config.json</button>
+      <button class="tbtn warn" onclick="downloadImages()">🖼 下載全部底圖</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: IMPORT ── -->
+<div class="overlay" id="modalImport">
+  <div class="modal" style="width:500px">
+    <div class="modal-head"><h3>📥 匯入設定</h3><button class="tbtn" onclick="closeModal('modalImport')">✕</button></div>
+    <div class="modal-body">
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button id="importTabPaste" onclick="switchImportTab('paste')"
+          style="flex:1;padding:9px;border-radius:6px;border:2px solid var(--acc);background:var(--acc);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans)">
+          📋 貼上 JSON
+        </button>
+        <button id="importTabFile" onclick="switchImportTab('file')"
+          style="flex:1;padding:9px;border-radius:6px;border:2px solid var(--border);background:var(--white);color:var(--txt2);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans)">
+          📁 選取檔案
+        </button>
+      </div>
+
+      <!-- Paste tab -->
+      <div id="importPasteArea">
+        <p style="font-size:13px;color:var(--txt2);margin-bottom:8px">貼入之前匯出的 all_config.json 內容</p>
+        <div class="mfield"><textarea id="importText" style="min-height:140px" placeholder='{"floors":[...],"zones":{...},"points":{}}'></textarea></div>
+      </div>
+
+      <!-- File tab -->
+      <div id="importFileArea" style="display:none">
+        <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">選取 all_config.json 檔案</p>
+        <input type="file" id="importFileInput" accept=".json,application/json" style="display:none" onchange="handleImportFile(this)">
+        <button onclick="document.getElementById('importFileInput').click()"
+          style="width:100%;padding:16px;border-radius:8px;border:2px dashed var(--border);
+          background:var(--bg);color:var(--txt2);font-size:14px;font-weight:600;cursor:pointer;
+          font-family:var(--sans);transition:.15s"
+          onmouseover="this.style.borderColor='var(--acc)';this.style.color='var(--acc)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--txt2)'">
+          📁 點擊選取 JSON 檔案
+        </button>
+        <div id="importFileName" style="margin-top:10px;font-size:13px;color:var(--grn);font-weight:600;display:none"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="tbtn" onclick="closeModal('modalImport')">取消</button>
+      <button class="tbtn primary" onclick="doImport()">匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: HELP ── -->
+<div class="overlay" id="modalHelp">
+  <div class="modal" style="width:480px">
+    <div class="modal-head"><h3>❓ 使用說明</h3><button class="tbtn" onclick="closeModal('modalHelp')">✕</button></div>
+    <div class="modal-body" style="font-size:12px;color:var(--txt2);line-height:2">
+      <b style="color:var(--acc)">設定流程</b><br>
+      ① 左側「＋樓層」新增樓層（如 2F）<br>
+      ② 樓層旁「＋」新增區域，填入名稱、Key、Excel Sheet 名稱<br>
+      ③ 點選區域 → 上傳該區域平面圖底圖<br>
+      ④ 切換「✏️ 新增點位」模式，點擊底圖設定點位<br>
+      ⑤ 右側面板編輯每個點位的編號/名稱/ID<br>
+      ⑥ 點位可拖曳移動微調<br>
+      ⑦ 重複 ③~⑥ 完成全部區域<br>
+      ⑧「匯出 all_config.json」下載後上傳到 GitHub repo<br>
+      ⑨ 底圖另存為 images/[zoneKey].png 一起上傳<br><br>
+      <b style="color:var(--acc)">主程式使用</b><br>
+      手機開啟 GitHub Pages 的 index.html，<br>
+      自動讀取 all_config.json 和底圖，可直接量測。<br><br>
+      <b style="color:var(--acc)">修改點位</b><br>
+      重新開啟 editor.html → 匯入舊 JSON → 修改 → 重新匯出上傳。
+    </div>
+    <div class="modal-foot"><button class="tbtn primary" onclick="closeModal('modalHelp')">了解了</button></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA MODEL
+// floors: [{id, name, icon, open}]
+// zones:  {floorId: [{key, name, icon, sub, excelSheet}]}
+// points: {zoneKey: [{id, label, name, x, y}]}
+// images: {zoneKey: dataURL}
+// ══════════════════════════════════════════════════════
+let floors = [];
+let zones  = {};   // floorId → zone[]
+let points = {};   // zoneKey → point[]
+let images = {};   // zoneKey → dataURL
+
+let activeFloorId = null;
+let activeZoneKey = null;
+
+// Canvas state
+let canvas, ctx;
+let scale = 1, ox = 0, oy = 0;
+let imgW = 0, imgH = 0;
+let bgImg = null;
+let mode = 'select'; // 'add' | 'pan' | 'select'
+let panning = false, panSX = 0, panSY = 0;
+let selId = null;
+let dragging = false, dragOX = 0, dragOY = 0;
+let editFloorId = null, editZoneKey = null;
+
+// ── INIT ─────────────────────────────────
+window.onload = () => {
+  canvas = document.getElementById('mainCanvas');
+  ctx = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', () => { resize(); redraw(); });
+
+  canvas.addEventListener('mousedown', onMD);
+  canvas.addEventListener('mousemove', onMM);
+  canvas.addEventListener('mouseup', onMU);
+  canvas.addEventListener('wheel', onWheel, {passive:false});
+
+  // Drag & drop image onto canvas
+  const wrap = document.getElementById('canvasWrap');
+  wrap.addEventListener('dragover', e => { e.preventDefault(); document.getElementById('dropOverlay').classList.add('show'); });
+  wrap.addEventListener('dragleave', () => document.getElementById('dropOverlay').classList.remove('show'));
+  wrap.addEventListener('drop', e => {
+    e.preventDefault();
+    document.getElementById('dropOverlay').classList.remove('show');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) readImageFile(f);
+  });
+
+  loadLocal();
+  renderTree();
+  redraw();
+};
+
+function resize() {
+  const wrap = document.getElementById('canvasWrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+// ── LOCAL STORAGE ────────────────────────
+const LS_KEY = 'cr_editor_v2';
+function saveLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({floors, zones, points}));
+    Object.keys(images).forEach(k => {
+      try { localStorage.setItem('cr_img_' + k, images[k]); } catch(e){}
+    });
+  } catch(e){}
+}
+function loadLocal() {
+  try {
+    const d = localStorage.getItem(LS_KEY);
+    if (d) { const p = JSON.parse(d); floors = p.floors||[]; zones = p.zones||{}; points = p.points||{}; }
+    // load images
+    Object.keys(points).forEach(k => {
+      const img = localStorage.getItem('cr_img_' + k);
+      if (img) images[k] = img;
+    });
+    // also check all zone keys
+    Object.values(zones).forEach(arr => arr.forEach(z => {
+      const img = localStorage.getItem('cr_img_' + z.key);
+      if (img) images[z.key] = img;
+    }));
+  } catch(e){}
+}
+
+// ── TREE RENDER ──────────────────────────
+function renderTree() {
+  const scroll = document.getElementById('treeScroll');
+  if (!floors.length) {
+    scroll.innerHTML = `<div class="no-pts-msg">
+      點擊右上「＋樓層」開始新增</div>`;
+    return;
+  }
+  scroll.innerHTML = floors.map(f => {
+    const fZones = zones[f.id] || [];
+    const isOpen = f.open !== false;
+    return `<div class="floor-item">
+      <div class="floor-header ${isOpen?'open':''}" onclick="toggleFloor('${f.id}')">
+        <span class="caret">▶</span>
+        <span class="floor-label">${f.icon||'🏢'} ${f.name}</span>
+        <div class="floor-actions">
+          <button class="mini-btn" onclick="event.stopPropagation();openEditFloor('${f.id}')" title="編輯">✎</button>
+          <button class="mini-btn" onclick="event.stopPropagation();openAddZone('${f.id}')" title="新增區域">＋</button>
+        </div>
+      </div>
+      <div class="zone-list ${isOpen?'open':''}">
+        ${fZones.map(z => {
+          const ptCount = (points[z.key]||[]).length;
+          const hasImg = !!images[z.key];
+          return `<div class="zone-item ${activeZoneKey===z.key?'active':''}" onclick="selectZone('${z.key}','${f.id}')">
+            <span>${z.icon||'📍'}</span>
+            <span class="zone-name">${z.name}</span>
+            <span class="zone-count">${hasImg?'🖼':'⬜'} ${ptCount}pt</span>
+            <div class="zone-actions">
+              <button class="mini-btn" onclick="event.stopPropagation();openEditZone('${z.key}','${f.id}')" title="編輯">✎</button>
+              <button class="mini-btn del" onclick="event.stopPropagation();confirmDeleteZone('${z.key}','${f.id}')" title="刪除">✕</button>
+            </div>
+          </div>`;
+        }).join('')}
+        <div class="add-zone-btn" onclick="openAddZone('${f.id}')">＋ 新增區域</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFloor(fid) {
+  const f = floors.find(x => x.id === fid);
+  if (f) { f.open = f.open === false ? true : false; saveLocal(); renderTree(); }
+}
+
+// ── ZONE SELECTION ───────────────────────
+function selectZone(zkey, fid) {
+  activeZoneKey = zkey;
+  activeFloorId = fid;
+  selId = null;
+
+  // Load bg image
+  if (images[zkey]) {
+    loadBgFromDataURL(images[zkey]);
+  } else {
+    bgImg = null; imgW = 0; imgH = 0;
+    document.getElementById('canvasWrap').classList.remove('has-content');
+    scale = 1; ox = 0; oy = 0;
+    redraw();
+  }
+
+  document.getElementById('editForm').classList.remove('show');
+  document.getElementById('canvasWrap').classList.toggle('has-content', !!images[zkey]);
+
+  const allZ = Object.values(zones).flat();
+  const z = allZ.find(z => z.key === zkey);
+  document.getElementById('zoneCtxLabel').textContent = z ? `${z.icon||'📍'} ${z.name}` : zkey;
+  document.getElementById('stMsg').textContent = '';
+
+  renderPtList();
+  renderTree();
+  updateRpInfo();
+}
+
+// ── IMAGE ────────────────────────────────
+function triggerBgUpload() {
+  if (!activeZoneKey) { alert('請先選擇左側區域'); return; }
+  const input = document.getElementById('bgFileInput');
+  input.value = ''; // reset so same file can be re-selected
+  input.click();
+}
+function uploadBg(input) {
+  if (!activeZoneKey) { alert('請先選擇左側區域'); return; }
+  if (input.files[0]) readImageFile(input.files[0]);
+}
+function clearBg() {
+  if (!activeZoneKey) return;
+  if (!confirm('移除此區域的底圖？點位座標會保留')) return;
+  delete images[activeZoneKey];
+  try { localStorage.removeItem('cr_img_' + activeZoneKey); } catch(e){}
+  bgImg = null; imgW = 0; imgH = 0;
+  document.getElementById('canvasWrap').classList.remove('has-content');
+  saveLocal(); renderTree(); redraw();
+}
+function readImageFile(file) {
+  if (!activeZoneKey) { alert('請先選擇左側區域'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    images[activeZoneKey] = e.target.result;
+    saveLocal();
+    renderTree();
+    loadBgFromDataURL(e.target.result);
+    document.getElementById('canvasWrap').classList.add('has-content');
+    status('✅ 底圖已上傳');
+  };
+  reader.readAsDataURL(file);
+}
+function loadBgFromDataURL(dataURL) {
+  const img = new Image();
+  img.onload = () => {
+    bgImg = img; imgW = img.naturalWidth; imgH = img.naturalHeight;
+    fitView();
+  };
+  img.src = dataURL;
+}
+
+// ── CANVAS TRANSFORMS ────────────────────
+function c2i(cx, cy) { return {x:(cx-ox)/scale, y:(cy-oy)/scale}; }
+function i2c(ix, iy) { return {x:ix*scale+ox, y:iy*scale+oy}; }
+
+function fitView() {
+  if (!bgImg) return;
+  const s = Math.min(canvas.width/imgW, canvas.height/imgH) * 0.9;
+  scale = s;
+  ox = (canvas.width - imgW*scale)/2;
+  oy = (canvas.height - imgH*scale)/2;
+  updZoom(); redraw();
+}
+function doZoom(f) {
+  const cx = canvas.width/2, cy = canvas.height/2;
+  const b = c2i(cx,cy);
+  scale = Math.min(10, Math.max(0.05, scale*f));
+  ox = cx - b.x*scale; oy = cy - b.y*scale;
+  updZoom(); redraw();
+}
+function updZoom() {
+  const s = Math.round(scale*100)+'%';
+  document.getElementById('zoomLabel').textContent = s;
+  document.getElementById('stZoom').textContent = s;
+}
+
+// ── MODE ─────────────────────────────────
+function setMode(m) {
+  mode = m;
+  ['Add','Pan','Sel'].forEach(x => document.getElementById('btn'+x).classList.remove('active'));
+  document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1)).classList.add('active');
+  canvas.style.cursor = m === 'pan' ? 'grab' : m === 'add' ? 'crosshair' : 'default';
+}
+
+// ── MOUSE EVENTS ─────────────────────────
+function onMD(e) {
+  const {x, y} = cxy(e);
+  if (mode === 'pan') {
+    panning = true; panSX = e.clientX - ox; panSY = e.clientY - oy;
+    canvas.style.cursor = 'grabbing'; return;
+  }
+  const hit = hitTest(x, y);
+  if (hit) {
+    selId = hit.id; dragging = true;
+    const ip = c2i(x, y); dragOX = ip.x - hit.x; dragOY = ip.y - hit.y;
+    showEditForm(hit); renderPtList(); redraw(); return;
+  }
+  if (mode === 'add' && bgImg && activeZoneKey) {
+    const ip = c2i(x, y);
+    const pts = points[activeZoneKey] || [];
+    const np = {
+      id: 'pt_' + Date.now(),
+      label: '#' + (pts.length + 1),
+      name: '',
+      x: Math.round(ip.x),
+      y: Math.round(ip.y)
+    };
+    if (!points[activeZoneKey]) points[activeZoneKey] = [];
+    points[activeZoneKey].push(np);
+    selId = np.id;
+    showEditForm(np);
+    saveLocal(); renderPtList(); renderTree(); redraw();
+    status('已新增 ' + np.label + '，請在右側填寫名稱');
+    return;
+  }
+  deselect();
+}
+
+function onMM(e) {
+  const {x, y} = cxy(e);
+  const ip = c2i(x, y);
+  document.getElementById('stCursor').textContent = `${Math.round(ip.x)}, ${Math.round(ip.y)}`;
+
+  if (panning) { ox = e.clientX - panSX; oy = e.clientY - panSY; redraw(); return; }
+  if (dragging && selId && activeZoneKey) {
+    const ip2 = c2i(x, y);
+    const pt = (points[activeZoneKey]||[]).find(p => p.id === selId);
+    if (pt) { pt.x = Math.round(ip2.x - dragOX); pt.y = Math.round(ip2.y - dragOY); redraw(); }
+  }
+}
+function onMU() {
+  if (panning) { panning = false; canvas.style.cursor = mode==='pan'?'grab':'default'; }
+  if (dragging) { dragging = false; saveLocal(); renderPtList(); }
+}
+function onWheel(e) {
+  e.preventDefault();
+  const {x,y} = cxy(e);
+  const b = c2i(x,y);
+  scale = Math.min(10, Math.max(0.05, scale * (e.deltaY<0?1.12:1/1.12)));
+  ox = x - b.x*scale; oy = y - b.y*scale;
+  updZoom(); redraw();
+}
+function cxy(e) {
+  const r = canvas.getBoundingClientRect();
+  return {x: e.clientX-r.left, y: e.clientY-r.top};
+}
+
+// ── HIT TEST ─────────────────────────────
+function hitTest(cx, cy) {
+  if (!activeZoneKey) return null;
+  const pts = points[activeZoneKey] || [];
+  const R = 18/scale;
+  for (let i = pts.length-1; i >= 0; i--) {
+    const p = pts[i];
+    const dx = (p.x*scale+ox) - cx, dy = (p.y*scale+oy) - cy;
+    if (Math.sqrt(dx*dx+dy*dy) < R) return p;
+  }
+  return null;
+}
+
+// ── DRAW ─────────────────────────────────
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.scale(scale, scale);
+
+  if (bgImg) {
+    ctx.drawImage(bgImg, 0, 0, imgW, imgH);
+  }
+
+  const pts = activeZoneKey ? (points[activeZoneKey]||[]) : [];
+  const R = 16/scale;
+  pts.forEach(p => {
+    const isSel = p.id === selId;
+    ctx.save();
+    ctx.shadowColor = isSel ? '#00bfff' : '#f5c40088';
+    ctx.shadowBlur = isSel ? 14/scale : 6/scale;
+    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI*2);
+    ctx.fillStyle = isSel ? '#00bfff' : '#f5c400';
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#fff' : '#000';
+    ctx.lineWidth = 2/scale; ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.font = `bold ${Math.round(11/scale)}px monospace`;
+    ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.label||'?', p.x, p.y);
+    ctx.restore();
+    if (scale > 0.6 && p.name) {
+      ctx.save();
+      const fs = Math.round(9/scale);
+      ctx.font = `${fs}px sans-serif`;
+      const tw = ctx.measureText(p.name).width;
+      ctx.fillStyle = 'rgba(0,0,0,.7)';
+      ctx.fillRect(p.x - tw/2 - 3/scale, p.y + R + 1/scale, tw + 6/scale, fs + 4/scale);
+      ctx.fillStyle = '#cceeff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(p.name, p.x, p.y + R + 3/scale);
+      ctx.restore();
+    }
+  });
+  ctx.restore();
+
+  document.getElementById('stPts').textContent = pts.length;
+}
+
+// ── POINT LIST ───────────────────────────
+function renderPtList() {
+  const scroll = document.getElementById('ptScroll');
+  const pts = activeZoneKey ? (points[activeZoneKey]||[]) : [];
+  if (!pts.length) {
+    scroll.innerHTML = `<div class="no-pts-msg">
+      ${activeZoneKey ? '切換「✏️新增點位」後點擊底圖設定' : '請先選擇區域'}</div>`;
+    return;
+  }
+  scroll.innerHTML = pts.map((p,i) => `
+    <div class="pt-row ${p.id===selId?'sel':''}" onclick="selectPt('${p.id}')">
+      <div class="pt-dot">${p.label||i+1}</div>
+      <div class="pt-info">
+        <div class="pt-lbl">${p.label||'未命名'}</div>
+        <div class="pt-nm">${p.name||'—'}</div>
+        <div class="pt-xy">(${p.x}, ${p.y})</div>
+      </div>
+      <button class="pt-del" onclick="event.stopPropagation();deletePt('${p.id}')">✕</button>
+    </div>`).join('');
+}
+
+function selectPt(id) {
+  selId = id;
+  const pt = (points[activeZoneKey]||[]).find(p=>p.id===id);
+  if (pt) showEditForm(pt);
+  renderPtList(); redraw();
+}
+
+function showEditForm(pt) {
+  document.getElementById('efLabel').value = pt.label||'';
+  document.getElementById('efName').value = pt.name||'';
+  document.getElementById('efId').value = pt.id||'';
+  document.getElementById('editForm').classList.add('show');
+}
+
+function liveEdit() {
+  if (!selId || !activeZoneKey) return;
+  const pt = (points[activeZoneKey]||[]).find(p=>p.id===selId);
+  if (!pt) return;
+  pt.label = document.getElementById('efLabel').value;
+  pt.name  = document.getElementById('efName').value;
+  const nid = document.getElementById('efId').value.trim();
+  if (nid && nid !== pt.id) { pt.id = nid; selId = nid; }
+  saveLocal(); renderPtList(); redraw();
+}
+
+function deselect() {
+  selId = null;
+  document.getElementById('editForm').classList.remove('show');
+  renderPtList(); redraw();
+}
+
+function deleteSelected() {
+  if (!selId || !activeZoneKey) return;
+  if (!confirm('刪除此點位？')) return;
+  deletePt(selId);
+}
+
+function deletePt(id) {
+  if (!activeZoneKey) return;
+  points[activeZoneKey] = (points[activeZoneKey]||[]).filter(p=>p.id!==id);
+  if (selId===id) deselect();
+  else { saveLocal(); renderPtList(); renderTree(); redraw(); }
+}
+
+function updateRpInfo() {
+  const allZ = Object.values(zones).flat();
+  const z = allZ.find(z => z.key === activeZoneKey);
+  if (!z) { document.getElementById('rpInfo').innerHTML = '請先選擇左側區域'; return; }
+  const ptCount = (points[z.key]||[]).length;
+  const hasImg = !!images[z.key];
+  document.getElementById('rpInfo').innerHTML =
+    `<b>${z.key}</b><br>Excel: <b>${z.excelSheet||'—'}</b><br>` +
+    `底圖: ${hasImg?'<span style="color:var(--grn)">✓ 已上傳</span>':'<span style="color:var(--ylw)">⚠ 未上傳</span>'}<br>` +
+    `點位: <b>${ptCount}</b> 個`;
+}
+
+// ── FLOOR/ZONE CRUD ──────────────────────
+function openAddFloor() {
+  document.getElementById('mFloorTitle').textContent = '新增樓層';
+  document.getElementById('mFloorName').value = '';
+  document.getElementById('mFloorIcon').value = '';
+  editFloorId = null;
+  openModal('modalFloor');
+}
+function confirmFloor() {
+  const name = document.getElementById('mFloorName').value.trim();
+  if (!name) { alert('請填寫樓層名稱'); return; }
+  const icon = document.getElementById('mFloorIcon').value.trim() || '🏢';
+  if (editFloorId) {
+    const f = floors.find(x=>x.id===editFloorId);
+    if (f) { f.name = name; f.icon = icon; }
+  } else {
+    const id = 'f_' + Date.now();
+    floors.push({id, name, icon, open:true});
+    zones[id] = [];
+  }
+  saveLocal(); renderTree(); closeModal('modalFloor');
+}
+
+function openEditFloor(fid) {
+  editFloorId = fid;
+  const f = floors.find(x=>x.id===fid);
+  document.getElementById('mEFloorName').value = f?.name||'';
+  document.getElementById('mEFloorIcon').value = f?.icon||'';
+  openModal('modalEditFloor');
+}
+function confirmEditFloor() {
+  const f = floors.find(x=>x.id===editFloorId);
+  if (f) {
+    f.name = document.getElementById('mEFloorName').value.trim()||f.name;
+    f.icon = document.getElementById('mEFloorIcon').value.trim()||f.icon;
+  }
+  saveLocal(); renderTree(); closeModal('modalEditFloor');
+}
+function deleteFloor() {
+  if (!confirm('刪除此樓層及其所有區域和點位？此動作無法復原')) return;
+  const fZones = zones[editFloorId]||[];
+  fZones.forEach(z => { delete points[z.key]; delete images[z.key]; });
+  delete zones[editFloorId];
+  floors = floors.filter(f=>f.id!==editFloorId);
+  if (activeFloorId===editFloorId) { activeFloorId=null; activeZoneKey=null; }
+  saveLocal(); renderTree(); renderPtList(); redraw(); closeModal('modalEditFloor');
+}
+
+function openAddZone(fid) {
+  editFloorId = fid; editZoneKey = null;
+  document.getElementById('mZoneTitle').textContent = '新增區域';
+  ['mZoneName','mZoneKey','mZoneSheet','mZoneSub','mZoneIcon'].forEach(id => document.getElementById(id).value='');
+  openModal('modalZone');
+}
+function confirmZone() {
+  const name  = document.getElementById('mZoneName').value.trim();
+  const key   = document.getElementById('mZoneKey').value.trim();
+  const sheet = document.getElementById('mZoneSheet').value.trim();
+  const sub   = document.getElementById('mZoneSub').value.trim();
+  const icon  = document.getElementById('mZoneIcon').value.trim() || '📍';
+  if (!name||!key) { alert('名稱和 Key 為必填'); return; }
+  // Check key unique
+  const allKeys = Object.values(zones).flat().map(z=>z.key);
+  if (allKeys.includes(key)) { alert('此 Key 已存在，請使用不同的 Key'); return; }
+  if (!zones[editFloorId]) zones[editFloorId] = [];
+  zones[editFloorId].push({key, name, icon, sub, excelSheet:sheet});
+  if (!points[key]) points[key] = [];
+  saveLocal(); renderTree(); closeModal('modalZone');
+}
+
+function openEditZone(zkey, fid) {
+  editFloorId = fid; editZoneKey = zkey;
+  const z = (zones[fid]||[]).find(x=>x.key===zkey);
+  document.getElementById('mEZoneName').value = z?.name||'';
+  document.getElementById('mEZoneKey').value = z?.key||'';
+  document.getElementById('mEZoneSheet').value = z?.excelSheet||'';
+  document.getElementById('mEZoneSub').value = z?.sub||'';
+  document.getElementById('mEZoneIcon').value = z?.icon||'';
+  openModal('modalEditZone');
+}
+function confirmEditZone() {
+  const fZones = zones[editFloorId]||[];
+  const z = fZones.find(x=>x.key===editZoneKey);
+  if (!z) return;
+  const newKey = document.getElementById('mEZoneKey').value.trim();
+  z.name = document.getElementById('mEZoneName').value.trim()||z.name;
+  z.excelSheet = document.getElementById('mEZoneSheet').value.trim();
+  z.sub = document.getElementById('mEZoneSub').value.trim();
+  z.icon = document.getElementById('mEZoneIcon').value.trim()||z.icon;
+  // Handle key rename
+  if (newKey && newKey !== editZoneKey) {
+    z.key = newKey;
+    points[newKey] = points[editZoneKey]||[];
+    images[newKey] = images[editZoneKey];
+    delete points[editZoneKey]; delete images[editZoneKey];
+    try {
+      localStorage.setItem('cr_img_'+newKey, localStorage.getItem('cr_img_'+editZoneKey));
+      localStorage.removeItem('cr_img_'+editZoneKey);
+    } catch(e){}
+    if (activeZoneKey===editZoneKey) activeZoneKey = newKey;
+  }
+  saveLocal(); renderTree(); updateRpInfo(); closeModal('modalEditZone');
+}
+function deleteZone() {
+  if (!confirm('刪除此區域及所有點位？此動作無法復原')) return;
+  zones[editFloorId] = (zones[editFloorId]||[]).filter(z=>z.key!==editZoneKey);
+  delete points[editZoneKey]; delete images[editZoneKey];
+  if (activeZoneKey===editZoneKey) { activeZoneKey=null; bgImg=null; imgW=0; imgH=0; }
+  saveLocal(); renderTree(); renderPtList(); redraw(); closeModal('modalEditZone');
+}
+function confirmDeleteZone(zkey, fid) {
+  editZoneKey=zkey; editFloorId=fid; deleteZone();
+}
+
+// ── EXPORT ───────────────────────────────
+function exportAll() {
+  // Build config matching main app expectations
+  const config = {
+    floors: floors.map(f => ({
+      id: f.id, name: f.name, icon: f.icon
+    })),
+    zones: {},
+    points: {}
+  };
+  floors.forEach(f => {
+    config.zones[f.id] = (zones[f.id]||[]).map(z => ({
+      key: z.key, name: z.name, icon: z.icon||'📍',
+      sub: z.sub||'', excelSheet: z.excelSheet||''
+    }));
+  });
+  Object.keys(points).forEach(k => {
+    config.points[k] = (points[k]||[]).map(p => ({
+      id: p.id, label: p.label, name: p.name, x: p.x, y: p.y
+    }));
+  });
+  document.getElementById('exportJson').textContent = JSON.stringify(config, null, 2);
+  openModal('modalExport');
+}
+
+function copyExport() {
+  navigator.clipboard.writeText(document.getElementById('exportJson').textContent)
+    .then(()=>status('✅ 已複製'));
+}
+function downloadExport() {
+  const text = document.getElementById('exportJson').textContent;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  a.download = 'all_config.json'; a.click();
+  status('✅ all_config.json 已下載');
+}
+function downloadImages() {
+  const keys = Object.keys(images);
+  if (!keys.length) { alert('尚未上傳任何底圖'); return; }
+  keys.forEach((k,i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = images[k];
+      // Detect extension from dataURL
+      const ext = images[k].startsWith('data:image/png')?'png':'jpg';
+      a.download = `${k}.${ext}`;
+      a.click();
+    }, i*300);
+  });
+  status(`✅ 開始下載 ${keys.length} 張底圖，請依序儲存到 GitHub repo 的 images/ 目錄`);
+}
+
+// ── IMPORT ───────────────────────────────
+let importTab = 'paste';
+let importFileText = '';
+
+function openImport() {
+  importFileText = '';
+  document.getElementById('importText').value = '';
+  document.getElementById('importFileName').style.display = 'none';
+  document.getElementById('importFileInput').value = '';
+  switchImportTab('paste');
+  openModal('modalImport');
+}
+
+function switchImportTab(tab) {
+  importTab = tab;
+  const isPaste = tab === 'paste';
+  document.getElementById('importPasteArea').style.display = isPaste ? 'block' : 'none';
+  document.getElementById('importFileArea').style.display = isPaste ? 'none' : 'block';
+
+  const btnPaste = document.getElementById('importTabPaste');
+  const btnFile  = document.getElementById('importTabFile');
+  btnPaste.style.background = isPaste ? 'var(--acc)' : 'var(--white)';
+  btnPaste.style.color      = isPaste ? '#fff' : 'var(--txt2)';
+  btnPaste.style.borderColor= isPaste ? 'var(--acc)' : 'var(--border)';
+  btnFile.style.background  = isPaste ? 'var(--white)' : 'var(--acc)';
+  btnFile.style.color       = isPaste ? 'var(--txt2)' : '#fff';
+  btnFile.style.borderColor = isPaste ? 'var(--border)' : 'var(--acc)';
+}
+
+function handleImportFile(input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    importFileText = e.target.result;
+    const nameEl = document.getElementById('importFileName');
+    nameEl.textContent = '✅ 已讀取：' + file.name;
+    nameEl.style.display = 'block';
+  };
+  reader.onerror = () => alert('檔案讀取失敗');
+  reader.readAsText(file, 'utf-8');
+}
+
+function doImport() {
+  const text = importTab === 'file'
+    ? importFileText
+    : document.getElementById('importText').value.trim();
+
+  if (!text) { alert('請先' + (importTab === 'file' ? '選取 JSON 檔案' : '貼入 JSON 內容')); return; }
+
+  try {
+    const d = JSON.parse(text);
+    if (d.floors) { floors = d.floors; floors.forEach(f => { f.open = true; }); }
+    if (d.zones)  zones = d.zones;
+    if (d.points) Object.assign(points, d.points);
+    saveLocal(); renderTree(); renderPtList(); redraw();
+    closeModal('modalImport');
+    status('✅ 匯入成功！' + floors.length + ' 樓層，' + Object.values(zones).flat().length + ' 個區域');
+  } catch(e) { alert('JSON 格式錯誤：' + e.message); }
+}
+
+// ── HELP ─────────────────────────────────
+function openHelp() { openModal('modalHelp'); }
+
+// ── MODAL HELPERS ────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(el =>
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); }));
+
+function status(msg) {
+  document.getElementById('stMsg').textContent = msg;
+  setTimeout(()=>document.getElementById('stMsg').textContent='', 4000);
+}
+
+// ── INIT MODE ────────────────────────────
+setMode('select');
+</script>
+</body>
+</html>

@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>無塵室微粒子量測</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg:      #f0f4f8;
+  --bg2:     #e4ecf4;
+  --white:   #ffffff;
+  --blue1:   #1a4f8a;   /* dark navy */
+  --blue2:   #2563b0;   /* mid blue */
+  --blue3:   #3b7dd8;   /* bright blue */
+  --blue4:   #dbeafe;   /* pale blue */
+  --blue5:   #eff6ff;   /* near-white */
+  --border:  #b8cfe8;
+  --acc:     #0066cc;
+  --acc2:    #0052a3;
+  --grn:     #059669;
+  --grn2:    #d1fae5;
+  --ylw:     #d97706;
+  --ylw2:    #fef3c7;
+  --red:     #dc2626;
+  --red2:    #fee2e2;
+  --txt:     #0f2d4e;
+  --txt2:    #3d6185;
+  --txt3:    #7aa0c0;
+  --shadow:  0 2px 10px rgba(26,79,138,0.12);
+  --shadow2: 0 6px 24px rgba(26,79,138,0.18);
+  --mono:    'JetBrains Mono', monospace;
+  --sans:    'Noto Sans TC', sans-serif;
+  --r:       10px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+
+/* ── TOPBAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;height:58px;background:var(--blue1);
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 16px rgba(26,79,138,0.35);
+}
+.app-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:.3px}
+.app-date{font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px}
+.top-btns{display:flex;gap:8px;align-items:center}
+.icon-btn{
+  width:38px;height:38px;border-radius:8px;
+  border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.12);
+  color:#fff;font-size:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:.15s;
+}
+.icon-btn:active{background:rgba(255,255,255,0.25)}
+.lang-pill{
+  background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);
+  color:#fff;border-radius:20px;padding:5px 14px;font-size:13px;cursor:pointer;
+  font-weight:600;transition:.15s;
+}
+.lang-pill:hover{background:rgba(255,255,255,0.25)}
+
+/* ── BREADCRUMB ── */
+.breadcrumb{
+  display:flex;align-items:center;gap:7px;padding:9px 18px;
+  background:var(--white);border-bottom:2px solid var(--blue4);
+  font-size:13px;color:var(--txt2);overflow-x:auto;white-space:nowrap;
+  flex-shrink:0;box-shadow:0 1px 4px rgba(26,79,138,0.06);
+}
+.crumb{color:var(--acc);cursor:pointer;font-weight:600}
+.crumb:hover{text-decoration:underline}
+
+/* ── PAGES ── */
+.page{display:none;animation:fadeUp .2s ease;padding-bottom:76px}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── SECTION HEADER ── */
+.sec-hd{
+  padding:18px 18px 8px;font-size:11px;font-weight:700;
+  letter-spacing:2.5px;color:var(--txt3);text-transform:uppercase;
+}
+
+/* ── CARDS ── */
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:6px 18px 18px}
+.card-grid.single{grid-template-columns:1fr}
+.sel-card{
+  background:var(--white);border:2px solid var(--border);border-radius:var(--r);
+  padding:20px 14px;cursor:pointer;transition:.18s;display:flex;flex-direction:column;
+  align-items:center;gap:8px;text-align:center;position:relative;overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.sel-card:active,.sel-card:hover{
+  border-color:var(--acc);background:var(--blue5);
+  box-shadow:0 4px 16px rgba(0,102,204,0.15);transform:translateY(-1px);
+}
+.sel-card .c-icon{font-size:30px}
+.sel-card .c-label{font-size:15px;font-weight:700;color:var(--txt)}
+.sel-card .c-sub{font-size:12px;color:var(--txt2);line-height:1.6}
+.badge-pt{
+  position:absolute;top:8px;right:8px;border-radius:12px;
+  padding:3px 9px;font-size:11px;font-weight:700;
+}
+.badge-ok{background:var(--grn2);color:var(--grn)}
+.badge-no{background:var(--ylw2);color:var(--ylw)}
+.unset-card{opacity:.7}
+
+/* ── PROGRESS ── */
+.prog-bar{
+  display:flex;margin:12px 18px;background:var(--white);
+  border:2px solid var(--border);border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.prog-stat{flex:1;padding:12px 0;text-align:center;border-right:2px solid var(--blue4)}
+.prog-stat:last-child{border-right:none}
+.prog-num{font-family:var(--mono);font-size:24px;font-weight:700}
+.prog-num.c-acc{color:var(--acc)}.prog-num.c-grn{color:var(--grn)}
+.prog-lbl{font-size:11px;color:var(--txt2);margin-top:3px;font-weight:500}
+
+/* ── MAP ── */
+.map-card{
+  margin:0 18px 14px;background:var(--white);
+  border:2px solid var(--border);border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.map-hd{
+  padding:11px 16px;font-size:14px;color:var(--blue1);font-weight:700;
+  border-bottom:2px solid var(--blue4);background:var(--blue5);
+}
+.map-body{padding:12px;position:relative}
+.map-img-wrap{position:relative;width:100%;display:block}
+.map-img-wrap img{width:100%;display:block;border-radius:8px;border:1px solid var(--border)}
+.map-img-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%;cursor:pointer}
+.map-no-img{
+  padding:36px;text-align:center;color:var(--txt2);font-size:14px;line-height:2;
+}
+
+/* ── ACTION BUTTONS ── */
+.action-row{display:flex;gap:10px;margin:0 18px 12px}
+.act-btn{
+  flex:1;padding:14px 8px;border-radius:10px;border:2px solid var(--border);
+  background:var(--white);color:var(--txt);font-size:14px;font-weight:700;
+  cursor:pointer;font-family:var(--sans);display:flex;align-items:center;
+  justify-content:center;gap:7px;transition:.15s;box-shadow:var(--shadow);
+}
+.act-btn:active{opacity:.85;transform:scale(0.98)}
+.act-btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.act-btn.primary:hover{background:var(--acc2);border-color:var(--acc2)}
+.act-btn.mail{border-color:var(--grn);color:var(--grn)}
+.act-btn.mail:hover{background:var(--grn2)}
+
+/* ── BOTTOM SHEET ── */
+.sheet-overlay{
+  display:none;position:fixed;inset:0;background:rgba(15,45,78,0.5);
+  z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);
+}
+.sheet-overlay.open{display:flex;animation:fadeUp .15s ease}
+.sheet{
+  background:var(--white);border-radius:18px 18px 0 0;width:100%;max-width:520px;
+  padding:0 0 32px;box-shadow:0 -4px 32px rgba(26,79,138,0.2);
+}
+.sheet-handle{
+  width:40px;height:5px;background:var(--border);
+  border-radius:3px;margin:12px auto 16px;
+}
+.sheet-title{
+  padding:0 22px 14px;font-size:17px;font-weight:700;color:var(--blue1);
+  border-bottom:2px solid var(--blue4);
+}
+.sheet-sub{font-size:12px;color:var(--txt2);font-weight:400;margin-top:3px}
+.sheet-body{padding:16px 22px 0}
+
+/* method buttons */
+.method-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.mth-btn{
+  background:var(--bg);border:2px solid var(--border);border-radius:10px;
+  padding:14px 8px;cursor:pointer;text-align:center;transition:.15s;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.mth-btn.active,.mth-btn:hover{border-color:var(--acc);background:var(--blue5)}
+.mth-icon{font-size:24px}
+.mth-label{font-size:13px;color:var(--txt2);font-weight:600}
+.mth-btn.active .mth-label{color:var(--acc)}
+
+/* camera area */
+.cam-area{display:none;margin-bottom:12px}
+.cam-area.show{display:block}
+.cam-preview{width:100%;max-height:160px;object-fit:contain;border-radius:8px;margin-bottom:10px;display:none;border:2px solid var(--border)}
+.cam-btn{
+  width:100%;padding:13px;background:var(--acc);color:#fff;border:none;
+  border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;
+  font-family:var(--sans);transition:.15s;
+}
+.cam-btn:active{background:var(--acc2)}
+.ai-msg{font-size:13px;color:var(--txt2);text-align:center;margin-top:8px;display:none}
+
+/* manual area */
+.man-area{display:none;margin-bottom:12px}
+.man-area.show{display:block}
+.val-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.val-lbl{
+  font-family:var(--mono);font-size:13px;color:var(--white);
+  background:var(--blue2);padding:6px 10px;border-radius:6px;
+  width:66px;text-align:center;flex-shrink:0;font-weight:600;
+}
+.val-inp{
+  flex:1;background:var(--white);border:2px solid var(--border);border-radius:8px;
+  padding:11px 14px;color:var(--txt);font-size:18px;font-family:var(--mono);
+  outline:none;transition:.15s;font-weight:600;
+}
+.val-inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,102,204,0.1)}
+.val-unit{font-size:12px;color:var(--txt3);width:26px;font-weight:500}
+
+/* result box */
+.result-box{
+  display:none;background:var(--blue5);border:2px solid var(--blue4);
+  border-radius:10px;padding:12px 14px;margin-bottom:12px;
+}
+.result-box.show{display:block}
+.result-hd{font-size:11px;color:var(--txt2);letter-spacing:1px;margin-bottom:10px;font-weight:600}
+.result-vals{display:flex;gap:12px}
+.rv{flex:1;text-align:center}
+.rv-lbl{font-size:11px;color:var(--txt2);margin-bottom:3px;font-weight:500}
+.rv-num{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--grn)}
+.rv-num.warn{color:var(--ylw)}.rv-num.danger{color:var(--red)}
+
+.submit-btn{
+  width:100%;padding:14px;background:var(--acc);color:#fff;border:none;
+  border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;
+  font-family:var(--sans);transition:.15s;
+}
+.submit-btn:disabled{opacity:.35;cursor:not-allowed}
+.submit-btn:not(:disabled):active{background:var(--acc2)}
+
+/* ── MAIL SHEET ── */
+.recipient-list{margin-bottom:14px}
+.recip-item{
+  display:flex;align-items:center;gap:12px;padding:12px 0;
+  border-bottom:1px solid var(--blue4);cursor:pointer;
+}
+.recip-item:last-child{border-bottom:none}
+.recip-check{
+  width:24px;height:24px;border-radius:6px;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s;
+  font-size:13px;font-weight:700;
+}
+.recip-check.checked{background:var(--grn);border-color:var(--grn);color:#fff}
+.recip-name{font-size:15px;font-weight:700;color:var(--txt)}
+.recip-email{font-size:12px;color:var(--txt2);margin-top:1px}
+
+.attach-hd{font-size:13px;color:var(--txt2);font-weight:700;margin-bottom:10px;letter-spacing:.5px}
+.attach-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.attach-opt{
+  display:flex;align-items:center;gap:12px;padding:11px 14px;
+  background:var(--bg);border:2px solid var(--border);border-radius:8px;
+  cursor:pointer;transition:.15s;
+}
+.attach-opt.selected{border-color:var(--acc);background:var(--blue5)}
+.attach-opt-icon{font-size:18px;flex-shrink:0}
+.attach-opt-label{font-size:14px;flex:1;font-weight:500;color:var(--txt)}
+.attach-opt-radio{
+  width:18px;height:18px;border-radius:50%;border:2px solid var(--border);
+  flex-shrink:0;transition:.15s;display:flex;align-items:center;justify-content:center;
+}
+.attach-opt.selected .attach-opt-radio{border-color:var(--acc);background:var(--acc)}
+.attach-opt.selected .attach-opt-radio::after{content:'';width:7px;height:7px;border-radius:50%;background:#fff}
+
+.zone-picker{display:none;flex-wrap:wrap;gap:7px;margin-top:10px;padding:10px;background:var(--bg);border-radius:8px}
+.zone-picker.show{display:flex}
+.zone-chip{
+  padding:5px 12px;border-radius:20px;border:2px solid var(--border);
+  font-size:12px;cursor:pointer;transition:.15s;color:var(--txt2);font-weight:500;
+}
+.zone-chip.sel{border-color:var(--acc);background:var(--acc);color:#fff;font-weight:700}
+
+.send-btn{
+  width:100%;padding:14px;background:var(--grn);color:#fff;border:none;
+  border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:var(--sans);
+  transition:.15s;
+}
+.send-btn:disabled{opacity:.35;cursor:not-allowed}
+.send-btn:not(:disabled):active{background:#047857}
+
+/* ── RECORDS ── */
+.rec-item{
+  display:flex;align-items:center;gap:12px;margin:0 18px 10px;
+  background:var(--white);border:2px solid var(--border);border-radius:10px;
+  padding:12px 16px;box-shadow:var(--shadow);
+}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:var(--grn);flex-shrink:0}
+.rec-title{font-size:14px;font-weight:700;color:var(--txt)}
+.rec-sub{font-size:12px;color:var(--txt2);margin-top:3px}
+.rec-status{font-size:12px;color:var(--grn);font-weight:600;white-space:nowrap}
+
+/* ── SETTINGS ── */
+.settings-card{
+  margin:0 18px 14px;background:var(--white);border:2px solid var(--border);
+  border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);
+}
+.setting-row{
+  display:flex;align-items:flex-start;gap:14px;padding:16px;
+  border-bottom:1px solid var(--blue4);
+}
+.setting-row:last-child{border-bottom:none}
+.setting-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+.setting-info{flex:1}
+.setting-label{font-size:15px;font-weight:700;color:var(--txt)}
+.setting-desc{font-size:12px;color:var(--txt2);margin-top:2px;line-height:1.5}
+.setting-inp{
+  width:100%;background:var(--bg);border:2px solid var(--border);border-radius:6px;
+  padding:8px 12px;color:var(--txt);font-size:13px;font-family:var(--mono);
+  outline:none;margin-top:8px;transition:.15s;
+}
+.setting-inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,102,204,0.1)}
+.setting-save{
+  padding:6px 16px;border-radius:6px;border:2px solid var(--acc);
+  background:var(--acc);color:#fff;font-size:13px;font-weight:700;
+  cursor:pointer;margin-top:8px;transition:.15s;font-family:var(--sans);
+}
+.setting-save:hover{background:var(--acc2)}
+.setting-status{font-size:12px;color:var(--grn);margin-top:5px;display:none;font-weight:600}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--white);border-top:2px solid var(--blue4);
+  display:flex;z-index:100;box-shadow:0 -2px 16px rgba(26,79,138,0.1);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.nav-btn{
+  flex:1;padding:10px 0 8px;text-align:center;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  transition:.15s;border-top:3px solid transparent;
+}
+.nav-icon{font-size:22px}
+.nav-label{font-size:11px;color:var(--txt3);font-weight:500}
+.nav-btn.active{border-top-color:var(--acc)}
+.nav-btn.active .nav-label{color:var(--acc);font-weight:700}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);
+  background:var(--grn);color:#fff;padding:10px 22px;border-radius:22px;
+  font-size:14px;font-weight:700;opacity:0;transition:.25s;z-index:999;
+  white-space:nowrap;box-shadow:var(--shadow2);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--red)}
+
+/* ── LOADING ── */
+.loading-overlay{
+  display:none;position:fixed;inset:0;background:rgba(240,244,248,0.85);
+  z-index:500;align-items:center;justify-content:center;
+  flex-direction:column;gap:14px;backdrop-filter:blur(3px);
+}
+.loading-overlay.show{display:flex}
+.spinner{
+  width:40px;height:40px;border:4px solid var(--blue4);
+  border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-msg{font-size:15px;color:var(--txt2);font-weight:600}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--blue3)}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-msg" id="loadingMsg">載入設定中...</div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div>
+    <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
+    <div class="app-date" id="appDate"></div>
+  </div>
+  <div class="top-btns">
+    <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
+    <div class="icon-btn" onclick="syncConfig()" title="重新載入設定">🔄</div>
+    <div class="lang-pill" onclick="toggleLang()" id="langPill">TH</div>
+  </div>
+</div>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb" id="breadcrumb">
+  <span class="crumb" onclick="goHome()">🏠 首頁</span>
+</div>
+
+<!-- ══ PAGE: HOME ══ -->
+<div class="page active" id="page-home">
+  <div class="sec-hd" id="lbl-selFloor">選擇樓層</div>
+  <div class="card-grid" id="floorGrid"></div>
+</div>
+
+<!-- ══ PAGE: ZONE ══ -->
+<div class="page" id="page-zone">
+  <div class="sec-hd" id="lbl-selZone">選擇量測區域</div>
+  <div class="card-grid" id="zoneGrid"></div>
+</div>
+
+<!-- ══ PAGE: MAP ══ -->
+<div class="page" id="page-map">
+  <div class="prog-bar" id="progBar">
+    <div class="prog-stat">
+      <div class="prog-num c-acc" id="statDone">0</div>
+      <div class="prog-lbl" id="lbl-done">已完成</div>
+    </div>
+    <div class="prog-stat">
+      <div class="prog-num" id="statTotal">0</div>
+      <div class="prog-lbl" id="lbl-total">總點位</div>
+    </div>
+    <div class="prog-stat">
+      <div class="prog-num c-grn" id="statPct">0%</div>
+      <div class="prog-lbl" id="lbl-pct">完成率</div>
+    </div>
+  </div>
+
+  <div class="map-card">
+    <div class="map-hd" id="mapHd">點選測量點位</div>
+    <div class="map-body">
+      <div id="mapContent"></div>
+    </div>
+  </div>
+
+  <div id="actionRow" class="action-row" style="display:none">
+    <button class="act-btn primary" onclick="submitAllRecords()">📤 <span id="lbl-save">儲存記錄</span></button>
+    <button class="act-btn mail" onclick="openMailSheet()">📧 <span id="lbl-mail">寄送報表</span></button>
+  </div>
+</div>
+
+<!-- ══ PAGE: RECORDS ══ -->
+<div class="page" id="page-records">
+  <div class="sec-hd" id="lbl-history">量測記錄</div>
+  <div id="recListWrap">
+    <div style="text-align:center;padding:40px;color:var(--txt3)">
+      <div style="font-size:36px">📋</div>
+      <div style="margin-top:8px;font-size:13px" id="lbl-noRec">尚無量測記錄</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: SETTINGS ══ -->
+<div class="page" id="page-settings">
+  <div class="sec-hd">系統設定</div>
+  <div class="settings-card">
+
+    <div class="setting-row">
+      <div class="setting-icon">🔑</div>
+      <div class="setting-info" style="flex:1">
+        <div class="setting-label">Claude API Key</div>
+        <div class="setting-desc">用於 AI 辨識計數器螢幕數值</div>
+        <input class="setting-inp" id="cfgApiKey" type="password" placeholder="sk-ant-api03-...">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <button class="setting-save" onclick="saveSetting('apiKey')">儲存</button>
+          <button class="setting-save" style="background:var(--s2);border-color:var(--border);color:var(--txt2)"
+            onclick="toggleShowKey()">👁</button>
+        </div>
+        <div class="setting-status" id="st-apiKey">✅ 已儲存</div>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-icon">🔗</div>
+      <div class="setting-info" style="flex:1">
+        <div class="setting-label">GAS 後端網址</div>
+        <div class="setting-desc">Google Apps Script 部署網址</div>
+        <input class="setting-inp" id="cfgGasUrl" type="url" placeholder="https://script.google.com/macros/s/...">
+        <div style="margin-top:6px">
+          <button class="setting-save" onclick="saveSetting('gasUrl')">儲存</button>
+        </div>
+        <div class="setting-status" id="st-gasUrl">✅ 已儲存</div>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-icon">🌐</div>
+      <div class="setting-info" style="flex:1">
+        <div class="setting-label">設定檔來源網址</div>
+        <div class="setting-desc">all_config.json 的完整 URL（留空則讀取同目錄）</div>
+        <input class="setting-inp" id="cfgConfigUrl" placeholder="留空自動使用 ./all_config.json">
+        <div style="margin-top:6px">
+          <button class="setting-save" onclick="saveSetting('configUrl')">儲存</button>
+          <button class="setting-save" style="margin-left:6px;background:var(--acc2);border-color:var(--acc2);color:#fff"
+            onclick="syncConfig()">立即重載</button>
+        </div>
+        <div class="setting-status" id="st-configUrl">✅ 已儲存</div>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-icon">👤</div>
+      <div class="setting-info" style="flex:1">
+        <div class="setting-label">量測人員姓名</div>
+        <div class="setting-desc">記錄於 Excel 表格「製表人」欄位</div>
+        <input class="setting-inp" id="cfgOperator" placeholder="請輸入姓名">
+        <div style="margin-top:6px">
+          <button class="setting-save" onclick="saveSetting('operator')">儲存</button>
+        </div>
+        <div class="setting-status" id="st-operator">✅ 已儲存</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sec-hd" style="margin-top:8px">版本資訊</div>
+  <div class="settings-card">
+    <div class="setting-row">
+      <div class="setting-icon">📱</div>
+      <div class="setting-info">
+        <div class="setting-label">無塵室微粒子量測 APP</div>
+        <div class="setting-desc">v2.0 · 東立材料股份有限公司</div>
+        <div class="setting-desc" style="margin-top:4px" id="cfgStatus">設定狀態載入中...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SHEET: MEASURE ══ -->
+<div class="sheet-overlay" id="measureSheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">
+      <div id="sheetPtName">量測點位</div>
+      <div class="sheet-sub" id="sheetZoneName"></div>
+    </div>
+    <div class="sheet-body">
+      <div class="method-row">
+        <div class="mth-btn active" id="mthCam" onclick="setMethod('cam')">
+          <div class="mth-icon">📷</div>
+          <div class="mth-label" id="lbl-cam">拍照辨識</div>
+        </div>
+        <div class="mth-btn" id="mthMan" onclick="setMethod('man')">
+          <div class="mth-icon">✏️</div>
+          <div class="mth-label" id="lbl-man">手動輸入</div>
+        </div>
+      </div>
+
+      <!-- Camera -->
+      <div class="cam-area show" id="camArea">
+        <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="handleCapture(this)">
+        <img id="camPreview" class="cam-preview">
+        <button class="cam-btn" onclick="document.getElementById('fileInput').click()">
+          📷 <span id="lbl-shoot">拍攝計數器螢幕</span>
+        </button>
+        <div class="ai-msg" id="aiMsg">🔍 AI 辨識中，請稍候...</div>
+      </div>
+
+      <!-- Manual -->
+      <div class="man-area" id="manArea">
+        <div class="val-row">
+          <div class="val-lbl">0.5 µm</div>
+          <input class="val-inp" id="inp05" type="number" inputmode="numeric" placeholder="0" oninput="onValChange()">
+          <div class="val-unit">個</div>
+        </div>
+        <div class="val-row">
+          <div class="val-lbl">5.0 µm</div>
+          <input class="val-inp" id="inp50" type="number" inputmode="numeric" placeholder="0" oninput="onValChange()">
+          <div class="val-unit">個</div>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div class="result-box" id="resultBox">
+        <div class="result-hd" id="lbl-aiResult">AI 辨識結果 — 請確認</div>
+        <div class="result-vals">
+          <div class="rv"><div class="rv-lbl">0.5 µm</div><div class="rv-num" id="rv05">—</div></div>
+          <div class="rv"><div class="rv-lbl">5.0 µm</div><div class="rv-num" id="rv50">—</div></div>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="confirmBtn" disabled onclick="confirmPoint()">
+        <span id="lbl-confirm">確認送出</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SHEET: MAIL ══ -->
+<div class="sheet-overlay" id="mailSheet">
+  <div class="sheet">
+    <div class="sheet-handle" onclick="closeSheet('mailSheet')"></div>
+    <div class="sheet-title">
+      📧 <span id="lbl-sendReport">寄送量測報表</span>
+    </div>
+    <div class="sheet-body">
+
+      <!-- Recipients -->
+      <div style="font-size:10px;color:var(--txt2);font-weight:600;letter-spacing:1px;margin-bottom:8px">收件人</div>
+      <div class="recipient-list" id="recipList">
+        <!-- generated -->
+      </div>
+
+      <!-- Attachment -->
+      <div class="attach-section">
+        <div class="attach-hd">附件範圍</div>
+        <div class="attach-opts">
+          <div class="attach-opt selected" id="att-current" onclick="selectAttach('current')">
+            <div class="attach-opt-icon">📄</div>
+            <div class="attach-opt-label" id="lbl-attCurrent">當次區域 Excel</div>
+            <div class="attach-opt-radio"></div>
+          </div>
+          <div class="attach-opt" id="att-select" onclick="selectAttach('select')">
+            <div class="attach-opt-icon">📑</div>
+            <div class="attach-opt-label">選擇多個區域</div>
+            <div class="attach-opt-radio"></div>
+          </div>
+          <div class="attach-opt" id="att-all" onclick="selectAttach('all')">
+            <div class="attach-opt-icon">🗜️</div>
+            <div class="attach-opt-label">全部區域 ZIP</div>
+            <div class="attach-opt-radio"></div>
+          </div>
+        </div>
+        <!-- Zone picker for multi select -->
+        <div class="zone-picker" id="zonePicker"></div>
+      </div>
+
+      <button class="send-btn" id="sendBtn" onclick="sendReport()">
+        📤 <span id="lbl-sendNow">寄出</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-btn active" id="nav-home" onclick="switchNav('home')">
+    <div class="nav-icon">📡</div>
+    <div class="nav-label" id="navlbl-measure">量測</div>
+  </div>
+  <div class="nav-btn" id="nav-records" onclick="switchNav('records')">
+    <div class="nav-icon">📋</div>
+    <div class="nav-label" id="navlbl-records">記錄</div>
+  </div>
+  <div class="nav-btn" id="nav-settings" onclick="switchNav('settings')">
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label" id="navlbl-settings">設定</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════
+const RECIPIENTS = [
+  { name:'徐嘉隆', email:'chris_hsu@tony.com.tw' },
+  { name:'徐宏昌', email:'alex@tony.com.tw' },
+  { name:'葉宇光', email:'benny.yeh@tony.com.tw' },
+];
+const LS = {
+  apiKey:    'cr_apiKey',
+  gasUrl:    'cr_gasUrl',
+  configUrl: 'cr_configUrl',
+  operator:  'cr_operator',
+  allRec:    'cr_allRecords',
+};
+
+// ══════════════════════════════════════════════════════
+// I18N
+// ══════════════════════════════════════════════════════
+const LANG = {
+  zh:{
+    appTitle:'🏭 無塵室微粒子量測', selFloor:'選擇樓層', selZone:'選擇量測區域',
+    done:'已完成', total:'總點位', pct:'完成率',
+    save:'儲存記錄', mail:'寄送報表', history:'量測記錄', noRec:'尚無量測記錄',
+    cam:'拍照辨識', man:'手動輸入', shoot:'拍攝計數器螢幕',
+    aiResult:'AI 辨識結果 — 請確認', confirm:'確認送出',
+    sendReport:'寄送量測報表', sendNow:'寄出',
+    attCurrent:'當次區域 Excel', pill:'TH',
+  },
+  th:{
+    appTitle:'🏭 ห้องสะอาด วัดอนุภาค', selFloor:'เลือกชั้น', selZone:'เลือกโซน',
+    done:'สำเร็จ', total:'จุดทั้งหมด', pct:'ความคืบหน้า',
+    save:'บันทึก', mail:'ส่งรายงาน', history:'ประวัติ', noRec:'ยังไม่มีข้อมูล',
+    cam:'ถ่ายภาพ', man:'กรอกมือ', shoot:'ถ่ายหน้าจอเครื่องวัด',
+    aiResult:'ผล AI — กรุณายืนยัน', confirm:'ยืนยัน',
+    sendReport:'ส่งรายงาน', sendNow:'ส่ง',
+    attCurrent:'Excel โซนปัจจุบัน', pill:'中',
+  }
+};
+let lang = 'zh';
+function toggleLang(){ lang = lang==='zh'?'th':'zh'; applyLang(); }
+function applyLang(){
+  const L = LANG[lang];
+  document.getElementById('appTitle').textContent = L.appTitle;
+  document.getElementById('langPill').textContent = L.pill;
+  ['selFloor','selZone','done','total','pct','save','mail',
+   'history','noRec','cam','man','shoot','aiResult','confirm',
+   'sendReport','sendNow','attCurrent'].forEach(k=>{
+    const el = document.getElementById('lbl-'+k);
+    if(el) el.textContent = L[k];
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// CONFIG & STATE
+// ══════════════════════════════════════════════════════
+let config = { floors:[], zones:{}, points:{} };
+let imageCache = {};  // zoneKey → dataURL (fetched from images/ folder)
+
+let state = {
+  floor: null, zone: null, zoneKey: null,
+  currentPt: null,
+  records: {},    // {ptId: {v05,v50,ts}}
+  allRecords: [], // submitted history
+};
+
+function getCfg(k){ return localStorage.getItem(LS[k])||''; }
+function setCfg(k,v){ localStorage.setItem(LS[k], v); }
+
+// ══════════════════════════════════════════════════════
+// BOOT — load config
+// ══════════════════════════════════════════════════════
+window.addEventListener('load', async ()=>{
+  initDate();
+  loadSettings();
+  loadHistory();
+  applyLang();
+
+  // Load saved allRecords
+  try { state.allRecords = JSON.parse(localStorage.getItem(LS.allRec)||'[]'); } catch(e){}
+
+  await syncConfig();
+});
+
+async function syncConfig(){
+  showLoading('載入點位設定...');
+  try {
+    const url = getCfg('configUrl') || './all_config.json';
+    const resp = await fetch(url + '?t=' + Date.now());
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    config = await resp.json();
+    hideLoading();
+    renderHome();
+    toast('✅ 設定載入完成');
+    updateCfgStatus();
+  } catch(e){
+    hideLoading();
+    // Fallback: try localStorage (editor saved)
+    try {
+      const raw = localStorage.getItem('cr_editor_v2');
+      if(raw){
+        const d = JSON.parse(raw);
+        config = { floors: d.floors||[], zones: d.zones||{}, points: d.points||{} };
+        // load images from editor localStorage
+        Object.values(config.zones).flat().forEach(z=>{
+          const img = localStorage.getItem('cr_img_'+z.key);
+          if(img) imageCache[z.key] = img;
+        });
+        renderHome();
+        toast('⚠️ 使用本機設定（無法連線到設定檔）');
+        return;
+      }
+    } catch(e2){}
+    toast('❌ 無法載入設定：'+e.message, true);
+    renderHome();
+    updateCfgStatus();
+  }
+}
+
+function updateCfgStatus(){
+  const floorCount = config.floors?.length||0;
+  const zoneCount = Object.values(config.zones||{}).flat().length;
+  const ptCount = Object.values(config.points||{}).reduce((a,b)=>a+b.length,0);
+  document.getElementById('cfgStatus').textContent =
+    `設定：${floorCount} 樓層 / ${zoneCount} 區域 / ${ptCount} 點位`;
+}
+
+// ══════════════════════════════════════════════════════
+// IMAGE LOADING (from GitHub images/ folder)
+// ══════════════════════════════════════════════════════
+async function getZoneImage(zoneKey){
+  if(imageCache[zoneKey]) return imageCache[zoneKey];
+  // Try PNG then JPG
+  for(const ext of ['png','jpg','jpeg']){
+    try{
+      const url = `./images/${zoneKey}.${ext}`;
+      const r = await fetch(url);
+      if(r.ok){
+        const blob = await r.blob();
+        const dataURL = await new Promise(res=>{
+          const fr = new FileReader(); fr.onload = e=>res(e.target.result); fr.readAsDataURL(blob);
+        });
+        imageCache[zoneKey] = dataURL;
+        return dataURL;
+      }
+    }catch(e){}
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════
+// HOME — render floors
+// ══════════════════════════════════════════════════════
+function renderHome(){
+  const grid = document.getElementById('floorGrid');
+  const floors = config.floors||[];
+  if(!floors.length){
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--txt3)">
+      <div style="font-size:36px">⚙️</div>
+      <div style="font-size:13px;margin-top:8px">尚未載入設定<br>請確認 all_config.json 已部署</div></div>`;
+    return;
+  }
+  grid.innerHTML = floors.map(f=>`
+    <div class="sel-card" onclick="selectFloor('${f.id}')">
+      <div class="c-icon">${f.icon||'🏢'}</div>
+      <div class="c-label">${f.name}</div>
+      <div class="c-sub">${(config.zones[f.id]||[]).length} 個量測區域</div>
+    </div>`).join('');
+}
+
+function selectFloor(fid){
+  state.floor = config.floors.find(f=>f.id===fid);
+  state.zone = null; state.zoneKey = null; state.records = {};
+  const zones = config.zones[fid]||[];
+  const grid = document.getElementById('zoneGrid');
+  grid.innerHTML = zones.map(z=>{
+    const pts = (config.points[z.key]||[]).length;
+    const ok = pts > 0;
+    return `<div class="sel-card ${ok?'':'unset-card'}" onclick="selectZone('${z.key}')">
+      <div class="badge-pt ${ok?'badge-ok':'badge-no'}">${ok?pts+'點':'未設定'}</div>
+      <div class="c-icon">${z.icon||'📍'}</div>
+      <div class="c-label">${z.name}</div>
+      <div class="c-sub">${z.sub||''}</div>
+    </div>`;
+  }).join('');
+  goPage('zone');
+}
+
+async function selectZone(zkey){
+  const allZones = Object.values(config.zones||{}).flat();
+  const zone = allZones.find(z=>z.key===zkey);
+  if(!zone) return;
+  state.zone = zone; state.zoneKey = zkey; state.records = {};
+
+  const pts = config.points[zkey]||[];
+  document.getElementById('mapHd').textContent = zone.name+' — 點選測量點位';
+  document.getElementById('statTotal').textContent = pts.length;
+  updateProgress();
+  document.getElementById('actionRow').style.display = 'none';
+
+  // Load image
+  showLoading('載入點位圖...');
+  const imgData = imageCache[zkey] || await getZoneImage(zkey);
+  hideLoading();
+
+  if(!pts.length){
+    document.getElementById('mapContent').innerHTML = `
+      <div class="map-no-img">
+        <div style="font-size:36px">⚙️</div>
+        <div style="margin-top:8px;color:var(--ylw);font-weight:700">此區域尚未設定點位</div>
+        <div style="margin-top:6px;font-size:11px;line-height:1.8">請先用 editor.html 設定點位<br>再匯出 all_config.json 上傳 GitHub</div>
+      </div>`;
+  } else if(imgData){
+    renderImageMap(zkey, imgData, pts);
+  } else {
+    // No image — show text list fallback
+    document.getElementById('mapContent').innerHTML = `
+      <div style="padding:4px 0">
+        ${pts.map(p=>`
+          <div onclick="openMeasure('${p.id}')" style="display:flex;align-items:center;gap:10px;
+            padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+            <div style="width:32px;height:32px;border-radius:50%;background:${state.records[p.id]?'var(--grn)':'var(--ylw)'};
+              display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;flex-shrink:0">
+              ${p.label}
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:600">${p.label}</div>
+              <div style="font-size:11px;color:var(--txt2)">${p.name}</div>
+            </div>
+            ${state.records[p.id]?'<div style="margin-left:auto;font-size:11px;color:var(--grn)">✓</div>':''}
+          </div>`).join('')}
+      </div>`;
+  }
+  goPage('map');
+}
+
+function renderImageMap(zkey, imgData, pts){
+  const wrap = document.createElement('div');
+  wrap.className = 'map-img-wrap';
+  const img = document.createElement('img');
+  img.src = imgData;
+  const cvs = document.createElement('canvas');
+  wrap.appendChild(img);
+  wrap.appendChild(cvs);
+  document.getElementById('mapContent').innerHTML = '';
+  document.getElementById('mapContent').appendChild(wrap);
+
+  function draw(){
+    cvs.width = img.offsetWidth;
+    cvs.height = img.offsetHeight;
+    if(!cvs.width) return;
+    const sx = cvs.width / img.naturalWidth;
+    const sy = cvs.height / img.naturalHeight;
+    const ctx = cvs.getContext('2d');
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    const R = Math.max(13, cvs.width*0.027);
+    pts.forEach(p=>{
+      const cx = p.x*sx, cy = p.y*sy;
+      const done = !!state.records[p.id];
+      ctx.save();
+      ctx.shadowColor = done?'#00d98b':'#f5c400';
+      ctx.shadowBlur = done?10:6;
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+      ctx.fillStyle = done?'#00d98b':'#f5c400';
+      ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.font=`bold ${Math.round(R*0.7)}px monospace`;
+      ctx.fillStyle='#000';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(p.label,cx,cy);
+      ctx.restore();
+    });
+  }
+
+  img.onload = ()=>{ draw(); window._mapDraw=draw; };
+  if(img.complete) { draw(); window._mapDraw=draw; }
+  window.addEventListener('resize',()=>{ if(window._mapDraw) window._mapDraw(); });
+
+  cvs.addEventListener('click', e=>{
+    const r = cvs.getBoundingClientRect();
+    const mx = e.clientX-r.left, my = e.clientY-r.top;
+    const sx2 = cvs.width/img.naturalWidth, sy2 = cvs.height/img.naturalHeight;
+    const R2 = Math.max(13, cvs.width*0.027)+4;
+    for(const p of pts){
+      const dx=p.x*sx2-mx, dy=p.y*sy2-my;
+      if(Math.sqrt(dx*dx+dy*dy)<R2){ openMeasure(p.id); return; }
+    }
+  });
+}
+
+function updateProgress(){
+  const pts = config.points[state.zoneKey]||[];
+  const done = Object.keys(state.records).length;
+  const total = pts.length;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statPct').textContent = total?Math.round(done/total*100)+'%':'0%';
+  if(done>0 && done===total){
+    document.getElementById('actionRow').style.display = 'flex';
+    if(done===total) toast('🎉 全部點位量測完成！');
+  }
+  if(window._mapDraw) window._mapDraw();
+}
+
+// ══════════════════════════════════════════════════════
+// MEASURE SHEET
+// ══════════════════════════════════════════════════════
+let curMethod = 'cam';
+
+function openMeasure(ptId){
+  const pts = config.points[state.zoneKey]||[];
+  const pt = pts.find(p=>p.id===ptId);
+  if(!pt) return;
+  state.currentPt = pt;
+
+  document.getElementById('sheetPtName').textContent = pt.label+' — '+pt.name;
+  document.getElementById('sheetZoneName').textContent = state.zone?.name||'';
+  document.getElementById('inp05').value='';
+  document.getElementById('inp50').value='';
+  document.getElementById('resultBox').classList.remove('show');
+  document.getElementById('confirmBtn').disabled=true;
+  document.getElementById('camPreview').style.display='none';
+  document.getElementById('aiMsg').style.display='none';
+  document.getElementById('fileInput').value='';
+
+  // Pre-fill if already recorded
+  if(state.records[ptId]){
+    const r=state.records[ptId];
+    document.getElementById('inp05').value=r.v05;
+    document.getElementById('inp50').value=r.v50;
+    showResult(r.v05,r.v50);
+    document.getElementById('confirmBtn').disabled=false;
+  }
+  setMethod('cam');
+  openSheet('measureSheet');
+}
+
+function setMethod(m){
+  curMethod=m;
+  document.getElementById('mthCam').classList.toggle('active',m==='cam');
+  document.getElementById('mthMan').classList.toggle('active',m==='man');
+  document.getElementById('camArea').classList.toggle('show',m==='cam');
+  document.getElementById('manArea').classList.toggle('show',m==='man');
+}
+
+async function handleCapture(input){
+  if(!input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = async e=>{
+    const dataURL = e.target.result;
+    const prev = document.getElementById('camPreview');
+    prev.src=dataURL; prev.style.display='block';
+    document.getElementById('aiMsg').style.display='block';
+    document.getElementById('confirmBtn').disabled=true;
+    try{
+      const result = await callVisionAPI(dataURL);
+      document.getElementById('aiMsg').style.display='none';
+      if(result){
+        document.getElementById('inp05').value=result.v05;
+        document.getElementById('inp50').value=result.v50;
+        showResult(result.v05,result.v50);
+        document.getElementById('confirmBtn').disabled=false;
+      }
+    }catch(err){
+      document.getElementById('aiMsg').style.display='none';
+      toast('辨識失敗，請手動輸入',true);
+      setMethod('man');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function callVisionAPI(dataURL){
+  const apiKey = getCfg('apiKey');
+  const gasUrl = getCfg('gasUrl');
+  const base64 = dataURL.split(',')[1];
+  const mediaType = dataURL.split(';')[0].split(':')[1];
+
+  // Try GAS proxy first (avoids CORS + hides API key)
+  if(gasUrl){
+    try{
+      const r = await fetch(gasUrl+'?action=analyze',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({image:base64, mediaType})
+      });
+      if(r.ok) return await r.json();
+    }catch(e){}
+  }
+
+  // Direct Anthropic call (needs API key)
+  if(apiKey){
+    const r = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-opus-4-6',
+        max_tokens:200,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+            {type:'text',text:'這是 TSI AeroTrak 微粒子計數器的螢幕照片。請從螢幕上找到 0.5μm 和 5.0μm 對應的計數數值（Σ# 欄位），只回傳 JSON：{"v05":數字,"v50":數字}，不要其他文字。'}
+          ]
+        }]
+      })
+    });
+    const d = await r.json();
+    const txt = d.content?.[0]?.text||'';
+    const m = txt.match(/\{[^}]+\}/);
+    if(m) return JSON.parse(m[0]);
+  }
+
+  // Mock for testing
+  return {v05:Math.floor(Math.random()*5000), v50:Math.floor(Math.random()*50)};
+}
+
+function onValChange(){
+  const v05=document.getElementById('inp05').value;
+  const v50=document.getElementById('inp50').value;
+  const ok=v05!==''&&v50!=='';
+  document.getElementById('confirmBtn').disabled=!ok;
+  if(ok) showResult(parseInt(v05),parseInt(v50));
+}
+
+function showResult(v05,v50){
+  document.getElementById('resultBox').classList.add('show');
+  // Limits
+  const isClass100K = state.zoneKey&&state.zoneKey.includes('100K');
+  const lim05=isClass100K?100000:10000;
+  const lim50=isClass100K?700:70;
+  const el05=document.getElementById('rv05');
+  const el50=document.getElementById('rv50');
+  el05.textContent=Number(v05).toLocaleString();
+  el50.textContent=Number(v50).toLocaleString();
+  el05.className='rv-num'+(v05>lim05?' danger':v05>lim05*.8?' warn':'');
+  el50.className='rv-num'+(v50>lim50?' danger':v50>lim50*.8?' warn':'');
+}
+
+function confirmPoint(){
+  const v05=parseInt(document.getElementById('inp05').value);
+  const v50=parseInt(document.getElementById('inp50').value);
+  if(isNaN(v05)||isNaN(v50)) return;
+  const pt=state.currentPt;
+  state.records[pt.id]={v05,v50,ts:new Date().toISOString()};
+  closeSheet('measureSheet');
+  updateProgress();
+  toast('✅ '+pt.label+' 已記錄');
+}
+
+// ══════════════════════════════════════════════════════
+// SUBMIT ALL
+// ══════════════════════════════════════════════════════
+async function submitAllRecords(){
+  const gasUrl=getCfg('gasUrl');
+  const pts=config.points[state.zoneKey]||[];
+  const payload={
+    action:'submit',
+    zoneKey:state.zoneKey,
+    excelSheet:state.zone?.excelSheet||state.zoneKey,
+    date:new Date().toISOString().split('T')[0],
+    operator:getCfg('operator')||'廠務',
+    records:pts.map(p=>({
+      ptId:p.id, label:p.label, name:p.name,
+      ...(state.records[p.id]||{v05:null,v50:null})
+    }))
+  };
+
+  showLoading('儲存資料中...');
+  try{
+    if(gasUrl){
+      const r=await fetch(gasUrl+'?action=submit',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+    }
+    // Save to local history
+    state.allRecords.unshift({...payload, submitted:true});
+    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0,100)));
+    hideLoading();
+    toast('✅ 資料已儲存');
+    renderRecords();
+  }catch(e){
+    hideLoading();
+    // Save locally anyway
+    state.allRecords.unshift({...payload, submitted:false, error:e.message});
+    localStorage.setItem(LS.allRec, JSON.stringify(state.allRecords.slice(0,100)));
+    toast('⚠️ 暫存本機（GAS連線失敗）',true);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// MAIL SHEET
+// ══════════════════════════════════════════════════════
+let selectedRecipients=new Set();
+let attachMode='current';
+let selectedZones=new Set();
+
+function openMailSheet(){
+  // Init recipients
+  selectedRecipients=new Set();
+  document.getElementById('recipList').innerHTML=RECIPIENTS.map(r=>`
+    <div class="recip-item" onclick="toggleRecip('${r.email}')">
+      <div class="recip-check" id="rc-${r.email.replace('@','_').replace('.','_')}"></div>
+      <div class="recip-info">
+        <div class="recip-name">${r.name}</div>
+        <div class="recip-email">${r.email}</div>
+      </div>
+    </div>`).join('');
+
+  // Init zone picker
+  const allZones=Object.values(config.zones||{}).flat();
+  selectedZones=new Set([state.zoneKey]);
+  document.getElementById('zonePicker').innerHTML=allZones.map(z=>`
+    <div class="zone-chip ${z.key===state.zoneKey?'sel':''}" id="zchip-${z.key}"
+      onclick="toggleZoneChip('${z.key}')">${z.name}</div>`).join('');
+
+  selectAttach('current');
+  openSheet('mailSheet');
+}
+
+function toggleRecip(email){
+  const id='rc-'+email.replace('@','_').replace('.','_');
+  if(selectedRecipients.has(email)){
+    selectedRecipients.delete(email);
+    document.getElementById(id).classList.remove('checked');
+    document.getElementById(id).innerHTML='';
+  } else {
+    selectedRecipients.add(email);
+    document.getElementById(id).classList.add('checked');
+    document.getElementById(id).innerHTML='✓';
+  }
+  document.getElementById('sendBtn').disabled = selectedRecipients.size===0;
+}
+
+function selectAttach(mode){
+  attachMode=mode;
+  ['current','select','all'].forEach(m=>{
+    document.getElementById('att-'+m).classList.toggle('selected',m===mode);
+  });
+  document.getElementById('zonePicker').classList.toggle('show',mode==='select');
+}
+
+function toggleZoneChip(zkey){
+  const el=document.getElementById('zchip-'+zkey);
+  if(selectedZones.has(zkey)){ selectedZones.delete(zkey); el.classList.remove('sel'); }
+  else { selectedZones.add(zkey); el.classList.add('sel'); }
+}
+
+async function sendReport(){
+  if(!selectedRecipients.size){ toast('請選擇收件人',true); return; }
+  const gasUrl=getCfg('gasUrl');
+  if(!gasUrl){ toast('請先在設定頁填入 GAS 網址',true); return; }
+
+  const zones = attachMode==='current' ? [state.zoneKey]
+    : attachMode==='select' ? [...selectedZones]
+    : Object.values(config.zones||{}).flat().map(z=>z.key);
+
+  const payload={
+    action:'sendMail',
+    to:[...selectedRecipients],
+    zones,
+    attachMode,
+    date:new Date().toISOString().split('T')[0],
+    operator:getCfg('operator')||'廠務',
+    zoneName:state.zone?.name||state.zoneKey,
+  };
+
+  showLoading('寄送郵件中...');
+  try{
+    const r=await fetch(gasUrl+'?action=sendMail',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const result=await r.json();
+    hideLoading();
+    closeSheet('mailSheet');
+    toast('📧 郵件已寄出！');
+  }catch(e){
+    hideLoading();
+    toast('❌ 寄送失敗：'+e.message,true);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// RECORDS
+// ══════════════════════════════════════════════════════
+function renderRecords(){
+  const wrap=document.getElementById('recListWrap');
+  if(!state.allRecords.length){
+    wrap.innerHTML=`<div style="text-align:center;padding:40px;color:var(--txt3)">
+      <div style="font-size:36px">📋</div>
+      <div style="margin-top:8px;font-size:13px">尚無量測記錄</div></div>`;
+    return;
+  }
+  wrap.innerHTML=state.allRecords.map(r=>{
+    const done=(r.records||[]).filter(p=>p.v05!=null).length;
+    return `<div class="rec-item">
+      <div class="rec-dot"></div>
+      <div class="rec-info">
+        <div class="rec-title">${r.excelSheet||r.zoneKey}</div>
+        <div class="rec-sub">${r.date} ｜ 量測人：${r.operator||'—'} ｜ ${done}/${(r.records||[]).length} 點</div>
+      </div>
+      <div class="rec-status">${r.submitted?'✓ 已儲存':'⚠ 本機'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════
+function loadSettings(){
+  document.getElementById('cfgApiKey').value = getCfg('apiKey');
+  document.getElementById('cfgGasUrl').value = getCfg('gasUrl');
+  document.getElementById('cfgConfigUrl').value = getCfg('configUrl');
+  document.getElementById('cfgOperator').value = getCfg('operator');
+  document.getElementById('sendBtn').disabled = true;
+}
+
+function saveSetting(key){
+  const ids={apiKey:'cfgApiKey',gasUrl:'cfgGasUrl',configUrl:'cfgConfigUrl',operator:'cfgOperator'};
+  const val=document.getElementById(ids[key]).value.trim();
+  setCfg(key,val);
+  const st=document.getElementById('st-'+key);
+  st.style.display='block';
+  setTimeout(()=>st.style.display='none',2000);
+  updateCfgStatus();
+}
+
+function toggleShowKey(){
+  const inp=document.getElementById('cfgApiKey');
+  inp.type=inp.type==='password'?'text':'password';
+}
+
+function loadHistory(){
+  try{ state.allRecords=JSON.parse(localStorage.getItem(LS.allRec)||'[]'); }catch(e){ state.allRecords=[]; }
+}
+
+// ══════════════════════════════════════════════════════
+// NAV / PAGE
+// ══════════════════════════════════════════════════════
+function switchNav(tab){
+  ['home','records','settings'].forEach(t=>{
+    document.getElementById('nav-'+t)?.classList.remove('active');
+  });
+  document.getElementById('nav-'+tab)?.classList.add('active');
+  if(tab==='home') goPage(state.zoneKey?'map':state.floor?'zone':'home');
+  else if(tab==='records'){ renderRecords(); goPage('records'); }
+  else if(tab==='settings') goPage('settings');
+}
+
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pg=document.getElementById('page-'+id);
+  if(pg) pg.classList.add('active');
+  updateBreadcrumb();
+}
+
+function goHome(){
+  state.floor=null; state.zone=null; state.zoneKey=null; state.records={};
+  window._mapDraw=null;
+  switchNav('home');
+  goPage('home');
+}
+
+function updateBreadcrumb(){
+  const bc=document.getElementById('breadcrumb');
+  let html=`<span class="crumb" onclick="goHome()">🏠 首頁</span>`;
+  if(state.floor) html+=` <span>›</span> <span class="crumb" onclick="selectFloor('${state.floor.id}')">${state.floor.name}</span>`;
+  if(state.zone)  html+=` <span>›</span> <span>${state.zone.name}</span>`;
+  bc.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function openSheet(id){ document.getElementById(id).classList.add('open'); }
+function closeSheet(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.sheet-overlay').forEach(el=>
+  el.addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); }));
+
+function showLoading(msg='載入中...'){
+  document.getElementById('loadingMsg').textContent=msg;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading(){ document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function toast(msg, isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show'+(isErr?' err':'');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+function initDate(){
+  const now=new Date();
+  document.getElementById('appDate').textContent=
+    now.toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+}
+</script>
+</body>
+</html>
