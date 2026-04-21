@@ -1549,16 +1549,18 @@ async function autoCropScreenV(b64){
 }
 
 async function callGoogleVisionAPI(b64){
-  const key=getCfg('visionKey');
-  if(!key) throw new Error('請先在設定頁填入 Google Vision API Key');
-  const res=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${key}`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION'}]}]})
+  // 走 GAS 後端代理，Key 只存在 Code.gs，手機完全不需要填 Key
+  const gasUrl = getGasUrl();
+  if(!gasUrl) throw new Error('請先在設定頁填入 GAS 後端網址');
+  const r = await fetch(gasUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'analyzeVision', image: b64 })
   });
-  const data=await res.json();
-  if(data.error) throw new Error(data.error.message);
-  if(data.responses?.[0]?.error) throw new Error(data.responses[0].error.message);
-  return data;
+  if(!r.ok) throw new Error('GAS 連線失敗 HTTP ' + r.status);
+  const d = await r.json();
+  if(!d.ok) throw new Error(d.error || 'Vision 辨識失敗');
+  return { v05: d.v05, v50: d.v50 };
 }
 
 function parseVisionResult(data){
@@ -1636,20 +1638,14 @@ async function handleVisionCapture(input){
       const b64raw=dataURL.split(',')[1];
       const b64=await autoCropScreenV(b64raw);
       msg.textContent='🔍 Vision API 辨識中...';
-      const data=await callGoogleVisionAPI(b64);
-      const results=parseVisionResult(data);
+      const d=await callGoogleVisionAPI(b64);
       msg.style.display='none';
-      if(results){
-        // 只取 0.5μm 和 5.0μm
-        const v05=parseInt(results['0.5'])||0;
-        const v50=parseInt(results['5.0'])||0;
-        document.getElementById('inp05').value=v05;
-        document.getElementById('inp50').value=v50;
-        showResult(v05,v50);
+      if(d && d.v05!==undefined){
+        document.getElementById('inp05').value=d.v05;
+        document.getElementById('inp50').value=d.v50;
+        showResult(d.v05,d.v50);
         document.getElementById('confirmBtn').disabled=false;
-        // 顯示所有粒徑供參考
-        const detail=PARTICLE_SIZES_V.map(sz=>`${sz}μm: ${results[sz]??'—'}`).join('  ');
-        toast('✅ Vision辨識完成　'+detail);
+        toast('✅ Vision辨識完成　0.5μm:'+d.v05+'　5.0μm:'+d.v50);
       } else {
         toast('Vision 辨識無結果，請手動輸入',true);
         setMethod('man');
