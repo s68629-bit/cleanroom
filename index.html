@@ -1814,6 +1814,8 @@ function deleteCurrentPoint(){
 async function submitAllRecords(){
   const gasUrl = getGasUrl();
   const pts = config.points[state.zoneKey] || [];
+
+  // 未完成提醒
   const done = Object.keys(state.records).length;
   const total = pts.length;
 
@@ -1830,7 +1832,9 @@ async function submitAllRecords(){
     action: 'submit',
     zoneKey: state.zoneKey,
     excelSheet: state.zone?.excelSheet || state.zoneKey,
+    zoneName: state.zone?.name || state.zoneKey,
     channels: getZoneChannels(),
+    zonePoints: pts.map(p => (p.label + ' ' + (p.name || '')).trim()),
     date: getMeasureDate(),
     operator: getCurrentOperator(),
     records: pts.map(p => ({
