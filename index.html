@@ -2,11 +2,17 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v3.4                                  ║
-  ║  Date    : 2026-04-20                            ║
+  ║  Version : v4.1                                  ║
+  ║  Date    : 2026-04-22                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
-  ║  Changes : 管制圖下載功能、下拉選單加樓層名稱            ║
+  ║  Changes : 動態粒徑（channels）支援 10μm/自訂粒徑   ║
+  ║            底圖讀取 JSON 內嵌 + images/ 並存        ║
+  ║            部分完成可儲存寄信（附提醒）              ║
+  ║            記錄頁加樓層/區域篩選                    ║
+  ║            量測導航直接回首頁                       ║
+  ║            寄信含量測明細表格                       ║
+  ║            提交自動建立管制表（不需硬編碼）           ║
   ╚══════════════════════════════════════════════════╝
 -->
 <html lang="zh-TW">
@@ -394,7 +400,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v3.5 · 2026-04-21</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v4.1 · 2026-04-22</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -553,7 +559,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <!-- 篩選工具列 -->
   <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <!-- 區域選擇 -->
-    <select id="chartZoneKey" onchange="updateChartLimits();renderChart()"
+    <select id="chartZoneKey" onchange="renderChart()"
       style="flex:1;background:var(--white);border:2px solid var(--border);border-radius:8px;
       padding:7px 10px;font-size:13px;color:var(--txt);font-family:var(--sans);outline:none;cursor:pointer">
     </select>
@@ -2530,22 +2536,10 @@ function goHome(){
 let chartData = [];  // 從 GAS 讀取的圖表資料
 
 // 管制上限對照表
-const CHART_LIMITS = {
-  '2F_R2R':        { um05: 10000,  um50: 70  },
-  '2F_R1':         { um05: 10000,  um50: 70  },
-  '2F_R2':         { um05: 10000,  um50: 70  },
-  '2F_Class 100K': { um05: 100000, um50: 700 },
-  '3F_R3':         { um05: 10000,  um50: 70  },
-  '3F_R2R':        { um05: 10000,  um50: 70  },
-  '3F_Class 100K': { um05: 100000, um50: 700 },
-};
-
 // 初始化管制圖分頁（切換 tab 時呼叫）
 function initChartPage() {
-  // 初始化區域選單
   const sel = document.getElementById('chartZoneKey');
   if (sel && sel.options.length <= 1) {
-    // 加入樓層名稱，讓選單更清楚
     const floorMap = {};
     (config.floors || []).forEach(f => { floorMap[f.id] = f.name; });
     const allZones = [];
@@ -2554,20 +2548,10 @@ function initChartPage() {
       (zlist || []).forEach(z => allZones.push({ ...z, floorName }));
     });
     sel.innerHTML = allZones.map(z =>
-      `<option value="${z.key}" ${z.key.includes('100K') && z.key.startsWith('2F') ? 'selected' : ''}>${z.floorName} - ${z.name}</option>`
-      ).join('');
+      `<option value="${z.key}">${z.floorName} - ${z.name}</option>`
+    ).join('');
   }
-  updateChartLimits();
   renderChart();
-}
-
-function updateChartLimits() {
-  const zoneKey = document.getElementById('chartZoneKey')?.value;
-  const lim = CHART_LIMITS[zoneKey] || { um05: 10000, um50: 70 };
-  const inp05 = document.getElementById('chartLimit05');
-  const inp50 = document.getElementById('chartLimit50');
-  if (inp05 && !inp05.dataset.userSet) inp05.value = lim.um05;
-  if (inp50 && !inp50.dataset.userSet) inp50.value = lim.um50;
 }
 
 // 取得管制圖的日期範圍
