@@ -751,16 +751,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
 
       <!-- Manual -->
       <div class="man-area" id="manArea">
-        <div class="val-row">
-          <div class="val-lbl">0.5 µm</div>
-          <input class="val-inp" id="inp05" type="number" inputmode="numeric" placeholder="0" oninput="onValChange()">
-          <div class="val-unit">個</div>
-        </div>
-        <div class="val-row">
-          <div class="val-lbl">5.0 µm</div>
-          <input class="val-inp" id="inp50" type="number" inputmode="numeric" placeholder="0" oninput="onValChange()">
-          <div class="val-unit">個</div>
-        </div>
+        <!-- 動態粒徑輸入欄位由 JS 渲染 -->
+        <div id="valInputs"></div>
         <!-- 備註欄 -->
         <div style="margin-top:10px">
           <div style="font-size:12px;color:var(--txt2);font-weight:600;margin-bottom:5px;letter-spacing:.5px">
@@ -778,10 +770,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
       <!-- Result -->
       <div class="result-box" id="resultBox">
         <div class="result-hd" id="lbl-aiResult">AI 辨識結果 — 請確認</div>
-        <div class="result-vals">
-          <div class="rv"><div class="rv-lbl">0.5 µm</div><div class="rv-num" id="rv05">—</div></div>
-          <div class="rv"><div class="rv-lbl">5.0 µm</div><div class="rv-num" id="rv50">—</div></div>
-        </div>
+        <!-- 動態結果欄位由 JS 渲染 -->
+        <div class="result-vals" id="resultVals"></div>
       </div>
 
       <button class="submit-btn" id="confirmBtn" disabled onclick="confirmPoint()">
@@ -1212,6 +1202,12 @@ async function syncConfig(silent=false){
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     config = await resp.json();
+    // ① 讀取 JSON 內嵌底圖（新版 editor 匯出格式）
+    if (config.images && typeof config.images === 'object') {
+      Object.entries(config.images).forEach(([k, dataURL]) => {
+        if (dataURL) imageCache[k] = dataURL;
+      });
+    }
     if(!silent) hideLoading();
     renderHome();
     renderRecords();
@@ -1369,7 +1365,7 @@ async function selectZone(zkey){
             <div onclick="openMeasure('${p.id}')" style="flex:1;cursor:pointer">
               <div style="font-size:13px;font-weight:600">${p.label} ${p.name?'— '+p.name:''}</div>
               ${rec?`<div style="font-size:11px;color:var(--grn)">
-                0.5μm: ${rec.v05} ／ 5.0μm: ${rec.v50}
+                ${getZoneChannels().map(ch=>`${ch.um}μm: ${rec.values?.[ch.um]??'—'}`).join(' ／ ')}
               </div>`:'<div style="font-size:11px;color:var(--txt3)">未量測</div>'}
             </div>
             ${rec?`
@@ -1452,9 +1448,12 @@ function updateProgress(){
   document.getElementById('statDone').textContent = done;
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statPct').textContent = total?Math.round(done/total*100)+'%':'0%';
-  if(done>0 && done===total){
+  // 有任何記錄就顯示儲存/寄信按鈕
+  if(done > 0){
     document.getElementById('actionRow').style.display = 'flex';
-    if(done===total) toast('🎉 全部點位量測完成！');
+    if(done === total) toast('🎉 全部點位量測完成！');
+  } else {
+    document.getElementById('actionRow').style.display = 'none';
   }
   if(window._mapDraw) window._mapDraw();
 }
@@ -1472,23 +1471,40 @@ function openMeasure(ptId){
 
   document.getElementById('sheetPtName').textContent = pt.label+' — '+pt.name;
   document.getElementById('sheetZoneName').textContent = state.zone?.name||'';
-  document.getElementById('inp05').value='';
-  document.getElementById('inp50').value='';
   document.getElementById('resultBox').classList.remove('show');
   document.getElementById('confirmBtn').disabled=true;
   document.getElementById('camPreview').style.display='none';
   document.getElementById('aiMsg').style.display='none';
   document.getElementById('fileInput').value='';
 
+  // 動態渲染粒徑輸入欄位
+  const channels = getZoneChannels();
+  const valInputs = document.getElementById('valInputs');
+  valInputs.innerHTML = channels.map(ch => `
+    <div class="val-row">
+      <div class="val-lbl">${ch.um} µm</div>
+      <input class="val-inp" id="inp_${ch.um}" type="number" inputmode="numeric"
+        placeholder="0" oninput="onValChange()">
+      <div class="val-unit">個</div>
+    </div>
+  `).join('');
+
+  // 動態渲染結果欄位
+  document.getElementById('resultVals').innerHTML = channels.map(ch =>
+    `<div class="rv"><div class="rv-lbl">${ch.um} µm</div><div class="rv-num" id="rv_${ch.um}">—</div></div>`
+  ).join('');
+
   // Pre-fill if already recorded
   const delBtn = document.getElementById('sheetDeleteBtn');
   const remarkInp = document.getElementById('inpRemark');
-  if(state.records[ptId]){
-    const r=state.records[ptId];
-    document.getElementById('inp05').value=r.v05;
-    document.getElementById('inp50').value=r.v50;
-    if(remarkInp) remarkInp.value = r.remark || '';
-    showResult(r.v05,r.v50);
+  const rec = state.records[ptId];
+  if(rec){
+    channels.forEach(ch => {
+      const el = document.getElementById('inp_'+ch.um);
+      if(el && rec.values) el.value = rec.values[ch.um] ?? '';
+    });
+    if(remarkInp) remarkInp.value = rec.remark || '';
+    showResult(rec.values || {});
     document.getElementById('confirmBtn').disabled=false;
     if(delBtn) delBtn.style.display='block';
   } else {
@@ -1549,18 +1565,19 @@ async function autoCropScreenV(b64){
 }
 
 async function callGoogleVisionAPI(b64){
-  // 走 GAS 後端代理，Key 只存在 Code.gs，手機完全不需要填 Key
   const gasUrl = getGasUrl();
   if(!gasUrl) throw new Error('請先在設定頁填入 GAS 後端網址');
+  const channels = getZoneChannels().map(ch => ch.um);
   const r = await fetch(gasUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'analyzeVision', image: b64 })
+    body: JSON.stringify({ action: 'analyzeVision', image: b64, channels })
   });
   if(!r.ok) throw new Error('GAS 連線失敗 HTTP ' + r.status);
   const d = await r.json();
   if(!d.ok) throw new Error(d.error || 'Vision 辨識失敗');
-  return { v05: d.v05, v50: d.v50 };
+  // 回傳統一為 values 物件格式
+  return d.values || { '0.5': d.v05, '5.0': d.v50 };
 }
 
 function parseVisionResult(data){
@@ -1640,12 +1657,16 @@ async function handleVisionCapture(input){
       msg.textContent='🔍 Vision API 辨識中...';
       const d=await callGoogleVisionAPI(b64);
       msg.style.display='none';
-      if(d && d.v05!==undefined){
-        document.getElementById('inp05').value=d.v05;
-        document.getElementById('inp50').value=d.v50;
-        showResult(d.v05,d.v50);
+      if(d && typeof d === 'object' && Object.keys(d).length > 0){
+        const channels = getZoneChannels();
+        channels.forEach(ch => {
+          const el = document.getElementById('inp_'+ch.um);
+          if(el && d[ch.um] !== undefined) el.value = d[ch.um];
+        });
+        showResult(d);
         document.getElementById('confirmBtn').disabled=false;
-        toast('✅ Vision辨識完成　0.5μm:'+d.v05+'　5.0μm:'+d.v50);
+        const summary = channels.map(ch=>`${ch.um}μm:${d[ch.um]??'—'}`).join('　');
+        toast('✅ Vision辨識完成　'+summary);
       } else {
         toast('Vision 辨識無結果，請手動輸入',true);
         setMethod('man');
@@ -1679,9 +1700,12 @@ async function handleCapture(input){
       const result = await callVisionAPI(dataURL);
       document.getElementById('aiMsg').style.display='none';
       if(result){
-        document.getElementById('inp05').value=result.v05;
-        document.getElementById('inp50').value=result.v50;
-        showResult(result.v05,result.v50);
+        const channels = getZoneChannels();
+        channels.forEach(ch => {
+          const el = document.getElementById('inp_'+ch.um);
+          if(el && result[ch.um] !== undefined) el.value = result[ch.um];
+        });
+        showResult(result);
         document.getElementById('confirmBtn').disabled=false;
       }
     }catch(err){
@@ -1694,61 +1718,83 @@ async function handleCapture(input){
 }
 
 async function callVisionAPI(dataURL){
-  // ✅ 所有辨識統一走 GAS 後端代理
-  // API Key 只存在 GAS，手機不需要填 Key
   const gasUrl = getGasUrl();
   const base64 = dataURL.split(',')[1];
   const mediaType = dataURL.split(';')[0].split(':')[1];
+  const channels = getZoneChannels().map(ch => ch.um);
 
   if(!gasUrl){
     throw new Error('請先在設定頁填入 GAS 後端網址');
   }
 
-  // GAS CORS 需用 text/plain
   const r = await fetch(gasUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'analyze', image: base64, mediaType })
+    body: JSON.stringify({ action: 'analyze', image: base64, mediaType, channels })
   });
 
   if(!r.ok) throw new Error('GAS 連線失敗 HTTP ' + r.status);
-
   const d = await r.json();
   if(!d.ok) throw new Error(d.error || 'AI 辨識失敗');
+  // 統一回傳 values 格式
+  return d.values || { '0.5': d.v05, '5.0': d.v50 };
+}
 
-  return { v05: d.v05, v50: d.v50 };
+// 取得目前區域的 channels（統一回傳物件格式）
+function getZoneChannels(){
+  const ch = state.zone?.channels;
+  if(!ch || ch.length===0) return [{um:'0.5',limit:10000},{um:'5.0',limit:70}];
+  if(typeof ch[0]==='string') return ch.map(um=>({um, limit: um==='0.5'?10000:um==='5.0'?70:null}));
+  return ch;
 }
 
 function onValChange(){
-  const v05=document.getElementById('inp05').value;
-  const v50=document.getElementById('inp50').value;
-  const ok=v05!==''&&v50!=='';
-  document.getElementById('confirmBtn').disabled=!ok;
-  if(ok) showResult(parseInt(v05),parseInt(v50));
+  const channels = getZoneChannels();
+  const allFilled = channels.every(ch => {
+    const el = document.getElementById('inp_'+ch.um);
+    return el && el.value !== '';
+  });
+  document.getElementById('confirmBtn').disabled = !allFilled;
+  if(allFilled){
+    const values = {};
+    channels.forEach(ch => {
+      const el = document.getElementById('inp_'+ch.um);
+      if(el) values[ch.um] = parseInt(el.value);
+    });
+    showResult(values);
+  }
 }
 
-function showResult(v05,v50){
+function showResult(values){
   document.getElementById('resultBox').classList.add('show');
-  // Limits
-  const isClass100K = state.zoneKey&&state.zoneKey.includes('100K');
-  const lim05=isClass100K?100000:10000;
-  const lim50=isClass100K?700:70;
-  const el05=document.getElementById('rv05');
-  const el50=document.getElementById('rv50');
-  el05.textContent=Number(v05).toLocaleString();
-  el50.textContent=Number(v50).toLocaleString();
-  el05.className='rv-num'+(v05>lim05?' danger':v05>lim05*.8?' warn':'');
-  el50.className='rv-num'+(v50>lim50?' danger':v50>lim50*.8?' warn':'');
+  const channels = getZoneChannels();
+  channels.forEach(ch => {
+    const el = document.getElementById('rv_'+ch.um);
+    if(!el) return;
+    const v = values[ch.um];
+    el.textContent = v !== undefined && v !== null ? Number(v).toLocaleString() : '—';
+    const lim = ch.limit;
+    if(lim && v !== undefined){
+      el.className = 'rv-num' + (v > lim ? ' danger' : v > lim*0.8 ? ' warn' : '');
+    } else {
+      el.className = 'rv-num';
+    }
+  });
 }
 
 function confirmPoint(){
-  const v05=parseInt(document.getElementById('inp05').value);
-  const v50=parseInt(document.getElementById('inp50').value);
-  if(isNaN(v05)||isNaN(v50)) return;
+  const channels = getZoneChannels();
+  const values = {};
+  for(const ch of channels){
+    const el = document.getElementById('inp_'+ch.um);
+    const v = parseInt(el?.value);
+    if(isNaN(v)) return;
+    values[ch.um] = v;
+  }
   const remark = (document.getElementById('inpRemark')?.value || '').trim();
-  const pt=state.currentPt;
+  const pt = state.currentPt;
   const isEdit = !!state.records[pt.id];
-  state.records[pt.id]={v05, v50, ts:new Date().toISOString(), remark};
+  state.records[pt.id] = { values, ts: new Date().toISOString(), remark };
   closeSheet('measureSheet');
   updateProgress();
   toast(isEdit ? '✏️ '+pt.label+' 已修改' : '✅ '+pt.label+' 已記錄');
@@ -1778,19 +1824,29 @@ function deleteCurrentPoint(){
 async function submitAllRecords(){
   const gasUrl = getGasUrl();
   const pts = config.points[state.zoneKey] || [];
+  const done = Object.keys(state.records).length;
+  const total = pts.length;
 
-  // 建立 payload，action 放在 body（GAS doPost 從 body.action 讀）
+  // 未完成提醒
+  if(done === 0){
+    toast('⚠️ 尚未量測任何點位', true); return;
+  }
+  if(done < total){
+    const go = confirm(`尚有 ${total - done} 個點位未完成量測，確定要儲存並寄送嗎？`);
+    if(!go) return;
+  }
+
   const payload = {
     action: 'submit',
     zoneKey: state.zoneKey,
     excelSheet: state.zone?.excelSheet || state.zoneKey,
+    channels: getZoneChannels(),
     date: getMeasureDate(),
     operator: getCurrentOperator(),
     records: pts.map(p => ({
       ptId: p.id, label: p.label, name: p.name,
-      v05: state.records[p.id]?.v05 ?? null,
-      v50: state.records[p.id]?.v50 ?? null,
-      ts:  state.records[p.id]?.ts  || null,
+      values: state.records[p.id]?.values ?? null,
+      ts:     state.records[p.id]?.ts    || null,
       remark: state.records[p.id]?.remark || '',
     }))
   };
@@ -2036,11 +2092,17 @@ function renderRecordList(){
   </div>` +
     '<div style="padding-bottom:80px">' +
     gasRecords.map((g, gi) => {
-      const ptDone = g.points.filter(p => p.v05 !== '' && p.v05 !== null).length;
+      const ptDone = g.points.filter(p => {
+        if (p.values) return Object.values(p.values).some(v => v !== null && v !== '');
+        return p.v05 !== '' && p.v05 !== null;
+      }).length;
       const isOver = g.points.some(p => {
         const lim = getLimits(g.zoneKey);
-        return (lim.um05 && Number(p.v05) > lim.um05) ||
-               (lim.um50 && Number(p.v50) > lim.um50);
+        const chs = lim.channels || [{um:'0.5',limit:lim.um05},{um:'5.0',limit:lim.um50}];
+        return chs.some(ch => {
+          const v = p.values ? p.values[ch.um] : (ch.um==='0.5'?p.v05:p.v50);
+          return ch.limit && Number(v) > ch.limit;
+        });
       });
       const isSelected = batchSelected.has(gi);
       const borderColor = isSelected ? 'var(--acc)' : isOver ? 'var(--red)' : 'var(--border)';
@@ -2096,28 +2158,30 @@ function renderRecordList(){
         <div id="recDetail_${gi}" style="display:none;padding:8px 14px">
           ${g.points.map(p => {
             const lim = getLimits(g.zoneKey);
-            const over05 = lim.um05 && Number(p.v05) > lim.um05;
-            const over50 = lim.um50 && Number(p.v50) > lim.um50;
+            const chs = lim.channels || [{um:'0.5',limit:lim.um05},{um:'5.0',limit:lim.um50}];
+            const isAnyOver = chs.some(ch => {
+              const v = p.values ? p.values[ch.um] : (ch.um==='0.5'?p.v05:p.v50);
+              return ch.limit && Number(v) > ch.limit;
+            });
+            const valHtml = chs.map(ch => {
+              const v = p.values ? p.values[ch.um] : (ch.um==='0.5'?p.v05:p.v50);
+              const over = ch.limit && Number(v) > ch.limit;
+              const display = (v!==''&&v!==null&&v!==undefined) ? v : '—';
+              return `<div style="font-family:var(--mono);font-size:12px;font-weight:600;
+                color:${over?'var(--red)':'var(--grn)'}">${display}</div>
+              <div style="font-size:10px;color:var(--txt3)">${ch.um}μm</div>`;
+            }).join('');
             return `<div style="display:flex;align-items:center;gap:8px;
               padding:5px 0;border-bottom:1px solid var(--blue4)">
               <div style="width:26px;height:26px;border-radius:50%;
-                background:${(over05||over50)?'var(--red)':'var(--grn)'};
+                background:${isAnyOver?'var(--red)':'var(--grn)'};
                 display:flex;align-items:center;justify-content:center;
                 font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${p.label}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:12px;color:var(--txt)">${p.name||'—'}</div>
                 ${p.remark?`<div style="font-size:11px;color:var(--acc);margin-top:1px">📝 ${p.remark}</div>`:''}
               </div>
-              <div style="font-family:var(--mono);font-size:12px;font-weight:600;
-                color:${over05?'var(--red)':'var(--grn)'}">
-                ${p.v05!==''&&p.v05!==null?p.v05:'—'}
-              </div>
-              <div style="font-size:10px;color:var(--txt3)">0.5μm</div>
-              <div style="font-family:var(--mono);font-size:12px;font-weight:600;
-                color:${over50?'var(--red)':'var(--grn)'}">
-                ${p.v50!==''&&p.v50!==null?p.v50:'—'}
-              </div>
-              <div style="font-size:10px;color:var(--txt3)">5μm</div>
+              ${valHtml}
             </div>`;
           }).join('')}
         </div>
@@ -2220,17 +2284,28 @@ async function batchDelete() {
 }
 
 function getLimits(zoneKey) {
+  // 優先從 config.zones 的 channels 讀取（新版）
+  const zone = Object.values(config.zones||{}).flat().find(z => z.key === zoneKey);
+  if (zone?.channels && zone.channels.length > 0) {
+    const ch = typeof zone.channels[0] === 'string'
+      ? zone.channels.map(um => ({ um, limit: um==='0.5'?10000:um==='5.0'?70:null }))
+      : zone.channels;
+    const result = {};
+    ch.forEach(c => { if(c.limit) result['um'+c.um.replace('.','_')] = c.limit; });
+    // 向下相容舊欄位名稱
+    result.um05 = ch.find(c=>c.um==='0.5')?.limit || null;
+    result.um50 = ch.find(c=>c.um==='5.0')?.limit || null;
+    result.channels = ch;
+    return result;
+  }
+  // Fallback：舊硬編碼
   const map = {
     '2F_R1':{um05:10000,um50:70}, '2F_R2':{um05:10000,um50:70},
     '2F_10K':{um05:10000,um50:70}, '2F_100K':{um05:100000,um50:700},
     '3F_R3':{um05:10000,um50:70}, '3F_10K':{um05:10000,um50:70},
     '3F_100K':{um05:100000,um50:700},
   };
-  // Try to match by contains
-  for (const [k, v] of Object.entries(map)) {
-    if (zoneKey && zoneKey.includes(k.split('_').pop())) return v;
-  }
-  return map[zoneKey] || {};
+  return map[zoneKey] || { um05:10000, um50:70 };
 }
 
 // ── 刪除整筆群組記錄 ──
@@ -2285,26 +2360,28 @@ function editGroup(gi) {
           padding:5px 12px;cursor:pointer;color:var(--txt2);font-family:var(--sans)">✕ 關閉</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:0 20px 16px">
-        ${g.points.map((p, pi) => `
+        ${g.points.map((p, pi) => {
+          const lim = getLimits(g.zoneKey);
+          const chs = lim.channels || [{um:'0.5',limit:lim.um05},{um:'5.0',limit:lim.um50}];
+          const inputsHtml = chs.map(ch => {
+            const v = p.values ? (p.values[ch.um]??'') : (ch.um==='0.5'?p.v05:p.v50);
+            return `<div style="flex:1">
+              <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">${ch.um} μm</div>
+              <input id="edit_${ch.um.replace('.','_')}_${pi}" type="number" value="${v??''}" inputmode="numeric"
+                style="width:100%;background:var(--white);border:1.5px solid var(--border);
+                border-radius:6px;padding:8px 10px;font-size:15px;font-family:var(--mono);outline:none">
+            </div>`;
+          }).join('');
+          return `
           <div style="margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
             <div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:8px">
               ${p.label} ${p.name?'— '+p.name:''}
             </div>
             <div style="display:flex;gap:8px;align-items:center">
-              <div style="flex:1">
-                <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">0.5 μm</div>
-                <input id="edit05_${pi}" type="number" value="${p.v05}" inputmode="numeric"
-                  style="width:100%;background:var(--white);border:1.5px solid var(--border);
-                  border-radius:6px;padding:8px 10px;font-size:15px;font-family:var(--mono);outline:none">
-              </div>
-              <div style="flex:1">
-                <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">5.0 μm</div>
-                <input id="edit50_${pi}" type="number" value="${p.v50}" inputmode="numeric"
-                  style="width:100%;background:var(--white);border:1.5px solid var(--border);
-                  border-radius:6px;padding:8px 10px;font-size:15px;font-family:var(--mono);outline:none">
-              </div>
+              ${inputsHtml}
             </div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
       <div style="padding:12px 20px;border-top:2px solid var(--blue4)">
         <button onclick="saveEditGroup(${gi})"
@@ -2325,24 +2402,33 @@ async function saveEditGroup(gi) {
 
   showLoading('儲存修改中...');
   let successCount = 0, errorCount = 0;
+  const lim = getLimits(g.zoneKey);
+  const chs = lim.channels || [{um:'0.5',limit:lim.um05},{um:'5.0',limit:lim.um50}];
 
   for (let pi = 0; pi < g.points.length; pi++) {
     const p = g.points[pi];
-    const inp05 = document.getElementById('edit05_' + pi);
-    const inp50 = document.getElementById('edit50_' + pi);
-    if (!inp05 || !inp50) continue;
+    const newValues = {};
+    let changed = false;
+    for (const ch of chs) {
+      const inputId = 'edit_' + ch.um.replace('.','_') + '_' + pi;
+      const inp = document.getElementById(inputId);
+      if (!inp) continue;
+      newValues[ch.um] = inp.value;
+      const oldVal = p.values ? (p.values[ch.um]??'') : (ch.um==='0.5'?p.v05:p.v50);
+      if (String(inp.value) !== String(oldVal)) changed = true;
+    }
+    if (!changed) continue;
 
-    const v05 = inp05.value;
-    const v50 = inp50.value;
-
-    // 只有值有改變才更新
-    if (String(v05) === String(p.v05) && String(v50) === String(p.v50)) continue;
-
+    // 向下相容：同時帶 v05/v50 給舊版 GAS
     try {
       const r = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'updateRecord', rowNum: p.rowNum, v05, v50 })
+        body: JSON.stringify({
+          action: 'updateRecord', rowNum: p.rowNum,
+          values: newValues,
+          v05: newValues['0.5'], v50: newValues['5.0']
+        })
       });
       const result = await r.json();
       if (result.ok) successCount++;
@@ -2527,8 +2613,6 @@ async function renderChart() {
 
 function buildChartHTML(zoneKey) {
   const wrap = document.getElementById('chartContent');
-  const limit05 = Number(document.getElementById('chartLimit05')?.value) || 10000;
-  const limit50 = Number(document.getElementById('chartLimit50')?.value) || 70;
 
   if (!chartData.length) {
     wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--txt3)">
@@ -2538,33 +2622,42 @@ function buildChartHTML(zoneKey) {
     return;
   }
 
-  // 整理資料：按日期排序，取得所有測點
+  // 從 config 取得 channels（動態）
+  const lim = getLimits(zoneKey);
+  const channels = lim.channels || [{um:'0.5',limit:lim.um05||10000},{um:'5.0',limit:lim.um50||70}];
+
+  // 整理資料：按日期排序
   const allDates = [...new Set(chartData.map(g => g.date))].sort();
   const allPoints = [...new Set(chartData.flatMap(g => g.points.map(p => p.label)))];
 
-  // 建立資料矩陣 {日期 → {測點 → {v05,v50,remark}}}
+  // 建立資料矩陣 {日期 → {測點 → {values, remark}}}（相容新舊格式）
   const matrix = {};
   chartData.forEach(g => {
     if (!matrix[g.date]) matrix[g.date] = {};
     g.points.forEach(p => {
-      matrix[g.date][p.label] = { v05: p.v05, v50: p.v50, remark: p.remark || '' };
+      const values = p.values || { '0.5': p.v05, '5.0': p.v50 };
+      matrix[g.date][p.label] = { values, remark: p.remark || '' };
     });
   });
 
-  // 產生 0.5μm 和 5μm 各自的 table + chart
-  wrap.innerHTML =
-    buildSingleChart('0.5 μm', allDates, allPoints, matrix, 'v05', limit05, '#0066cc') +
-    '<div style="height:20px"></div>' +
-    buildSingleChart('5 μm', allDates, allPoints, matrix, 'v50', limit50, '#cc6600');
+  // 每個粒徑各產生一張圖
+  const colors = ['#0066cc','#cc6600','#009944','#cc0044','#6600cc'];
+  wrap.innerHTML = channels.map((ch, ci) => {
+    const limit = Number(document.getElementById('chartLimit05')?.value) || ch.limit || 10000;
+    return buildSingleChart(ch.um + ' μm', allDates, allPoints, matrix, ch.um, limit, colors[ci % colors.length]);
+  }).join('<div style="height:20px"></div>');
 }
 
-function buildSingleChart(title, dates, points, matrix, valKey, limit, color) {
-  const limitKey = valKey === 'v05' ? '05' : '50';
-
-  // 計算每個日期每個測點的值
+function buildSingleChart(title, dates, points, matrix, umKey, limit, color) {
+  // 計算每個日期每個測點的值（新格式用 values[um]，舊格式用 v05/v50）
   const series = points.map(pt => ({
     label: pt,
-    values: dates.map(d => matrix[d]?.[pt]?.[valKey] ?? null),
+    values: dates.map(d => {
+      const rec = matrix[d]?.[pt];
+      if (!rec) return null;
+      const v = rec.values ? rec.values[umKey] : (umKey==='0.5'?rec.v05:rec.v50);
+      return (v !== null && v !== undefined && v !== '') ? Number(v) : null;
+    }),
     remarks: dates.map(d => matrix[d]?.[pt]?.remark ?? '')
   }));
 
@@ -2751,8 +2844,8 @@ function downloadFilteredCsv() {
   const zoneKey = document.getElementById('chartZoneKey')?.value;
   if (!zoneKey || !chartData.length) { toast('目前無資料可下載', true); return; }
 
-  const limit05 = Number(document.getElementById('chartLimit05')?.value) || 10000;
-  const limit50 = Number(document.getElementById('chartLimit50')?.value) || 70;
+  const lim = getLimits(zoneKey);
+  const channels = lim.channels || [{um:'0.5',limit:lim.um05||10000},{um:'5.0',limit:lim.um50||70}];
 
   // 整理所有日期和測點
   const allDates = [...new Set(chartData.map(g => g.date))].sort();
@@ -2762,7 +2855,8 @@ function downloadFilteredCsv() {
   chartData.forEach(g => {
     if (!matrix[g.date]) matrix[g.date] = {};
     g.points.forEach(p => {
-      matrix[g.date][p.label] = { v05: p.v05, v50: p.v50, remark: p.remark || '' };
+      const values = p.values || { '0.5': p.v05, '5.0': p.v50 };
+      matrix[g.date][p.label] = { values, remark: p.remark || '' };
     });
   });
 
@@ -2770,27 +2864,19 @@ function downloadFilteredCsv() {
   const bom = '﻿';
   const rows = [];
 
-  // 0.5μm 區塊
-  rows.push([`■ 0.5 μm 管制記錄`, '', `上限：${limit05}`, '']);
-  rows.push(['測點', ...allDates.map(d => d.slice(5)), '']);
-  allPoints.forEach(pt => {
-    rows.push([pt, ...allDates.map(d => {
-      const v = matrix[d]?.[pt]?.v05;
-      return v !== null && v !== undefined && v !== '' ? v : '';
-    }), '']);
+  // 每個粒徑各一個區塊
+  channels.forEach(ch => {
+    rows.push([`■ ${ch.um} μm 管制記錄`, '', `上限：${ch.limit||'—'}`, '']);
+    rows.push(['測點', ...allDates.map(d => d.slice(5)), '']);
+    allPoints.forEach(pt => {
+      rows.push([pt, ...allDates.map(d => {
+        const rec = matrix[d]?.[pt];
+        const v = rec?.values?.[ch.um];
+        return v !== null && v !== undefined && v !== '' ? v : '';
+      }), '']);
+    });
+    rows.push([]);
   });
-  rows.push([]);
-
-  // 5μm 區塊
-  rows.push([`■ 5 μm 管制記錄`, '', `上限：${limit50}`, '']);
-  rows.push(['測點', ...allDates.map(d => d.slice(5)), '']);
-  allPoints.forEach(pt => {
-    rows.push([pt, ...allDates.map(d => {
-      const v = matrix[d]?.[pt]?.v50;
-      return v !== null && v !== undefined && v !== '' ? v : '';
-    }), '']);
-  });
-  rows.push([]);
 
   // 備註區塊
   const hasRemark = chartData.some(g => g.points.some(p => p.remark));

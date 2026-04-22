@@ -415,7 +415,7 @@ pre.json-out{
 
 <!-- ── MODAL: ADD ZONE ── -->
 <div class="overlay" id="modalZone">
-  <div class="modal" style="width:400px">
+  <div class="modal" style="width:460px">
     <div class="modal-head"><h3 id="mZoneTitle">新增區域</h3><button class="tbtn" onclick="closeModal('modalZone')">✕</button></div>
     <div class="modal-body">
       <div class="mfield"><label>區域名稱（如 R1 罩內）</label><input id="mZoneName" placeholder="R1 罩內"></div>
@@ -423,6 +423,57 @@ pre.json-out{
       <div class="mfield"><label>對應 Excel 工作表名稱</label><input id="mZoneSheet" placeholder="R1罩內"></div>
       <div class="mfield"><label>量測頻率說明</label><input id="mZoneSub" placeholder="Class 10K｜9~11點"></div>
       <div class="mfield"><label>圖示（Emoji）</label><input id="mZoneIcon" placeholder="🔴" style="font-size:18px"></div>
+      <div class="mfield">
+        <label>量測粒徑與標準值（個/CF）</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+
+          <!-- 0.5 μm -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mCh05" checked style="margin:0">
+            <span style="font-size:13px;font-weight:600">0.5 μm</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mLim05" value="10000" inputmode="numeric"
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- 5.0 μm -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mCh50" checked style="margin:0">
+            <span style="font-size:13px;font-weight:600">5.0 μm</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mLim50" value="70" inputmode="numeric"
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- 10.0 μm -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mCh10" style="margin:0">
+            <span style="font-size:13px;font-weight:600">10.0 μm</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mLim10" placeholder="—" inputmode="numeric"
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- 自訂粒徑 -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mChCustom" style="margin:0" onchange="toggleCustomCh('m')">
+            <input type="number" id="mChCustomVal" placeholder="自訂μm" step="0.1" inputmode="decimal" disabled
+              style="padding:4px 6px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono);width:100%">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mLimCustom" placeholder="—" inputmode="numeric" disabled
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="tbtn" onclick="closeModal('modalZone')">取消</button>
@@ -449,7 +500,7 @@ pre.json-out{
 
 <!-- ── MODAL: EDIT ZONE ── -->
 <div class="overlay" id="modalEditZone">
-  <div class="modal" style="width:400px">
+  <div class="modal" style="width:460px">
     <div class="modal-head"><h3>編輯區域</h3><button class="tbtn" onclick="closeModal('modalEditZone')">✕</button></div>
     <div class="modal-body">
       <div class="mfield"><label>區域名稱</label><input id="mEZoneName"></div>
@@ -457,6 +508,57 @@ pre.json-out{
       <div class="mfield"><label>Excel 工作表名稱</label><input id="mEZoneSheet"></div>
       <div class="mfield"><label>說明文字</label><input id="mEZoneSub"></div>
       <div class="mfield"><label>圖示</label><input id="mEZoneIcon" style="font-size:18px"></div>
+      <div class="mfield">
+        <label>量測粒徑與標準值（個/CF）</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+
+          <!-- 0.5 μm -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mECh05" style="margin:0">
+            <span style="font-size:13px;font-weight:600">0.5 μm</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mELim05" value="10000" inputmode="numeric"
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- 5.0 μm -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mECh50" style="margin:0">
+            <span style="font-size:13px;font-weight:600">5.0 μm</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mELim50" value="70" inputmode="numeric"
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- 10.0 μm -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mECh10" style="margin:0">
+            <span style="font-size:13px;font-weight:600">10.0 μm</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mELim10" placeholder="—" inputmode="numeric"
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- 自訂粒徑 -->
+          <div style="display:grid;grid-template-columns:20px 70px 1fr;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;border:1.5px solid var(--border)">
+            <input type="checkbox" id="mEChCustom" style="margin:0" onchange="toggleCustomCh('mE')">
+            <input type="number" id="mEChCustomVal" placeholder="自訂μm" step="0.1" inputmode="decimal" disabled
+              style="padding:4px 6px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono);width:100%">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--txt3);white-space:nowrap">標準值</span>
+              <input type="number" id="mELimCustom" placeholder="—" inputmode="numeric" disabled
+                style="flex:1;min-width:0;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="tbtn danger" onclick="deleteZone()">刪除區域</button>
@@ -473,7 +575,7 @@ pre.json-out{
     <div class="modal-body">
       <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">
         將此檔案命名為 <b style="color:var(--acc)">all_config.json</b> 上傳到你的 GitHub repo 根目錄。<br>
-        底圖圖片請另存為 <b style="color:var(--acc)">images/[zoneKey].png</b> 一起上傳。
+        底圖已內嵌於 JSON（<code>images</code> 欄位），無需另外上傳圖片。
       </p>
       <pre class="json-out" id="exportJson"></pre>
     </div>
@@ -629,7 +731,14 @@ function saveLocal() {
 function loadLocal() {
   try {
     const d = localStorage.getItem(LS_KEY);
-    if (d) { const p = JSON.parse(d); floors = p.floors||[]; zones = p.zones||{}; points = p.points||{}; }
+    if (d) {
+      const p = JSON.parse(d);
+      floors = p.floors||[]; zones = p.zones||{}; points = p.points||{};
+      // 升級舊版 channels 格式
+      Object.values(zones).forEach(zList => zList.forEach(z => {
+        z.channels = normalizeChannels(z.channels);
+      }));
+    }
     // load images
     Object.keys(points).forEach(k => {
       const img = localStorage.getItem('cr_img_' + k);
@@ -1044,6 +1153,12 @@ function openAddZone(fid) {
   editFloorId = fid; editZoneKey = null;
   document.getElementById('mZoneTitle').textContent = '新增區域';
   ['mZoneName','mZoneKey','mZoneSheet','mZoneSub','mZoneIcon'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('mCh05').checked = true;  document.getElementById('mLim05').value = '10000';
+  document.getElementById('mCh50').checked = true;  document.getElementById('mLim50').value = '70';
+  document.getElementById('mCh10').checked = false; document.getElementById('mLim10').value = '';
+  document.getElementById('mChCustom').checked = false;
+  document.getElementById('mChCustomVal').value = ''; document.getElementById('mChCustomVal').disabled = true;
+  document.getElementById('mLimCustom').value = '';  document.getElementById('mLimCustom').disabled = true;
   openModal('modalZone');
 }
 function confirmZone() {
@@ -1053,11 +1168,25 @@ function confirmZone() {
   const sub   = document.getElementById('mZoneSub').value.trim();
   const icon  = document.getElementById('mZoneIcon').value.trim() || '📍';
   if (!name||!key) { alert('名稱和 Key 為必填'); return; }
+  // 收集 channels（物件格式 {um, limit}）
+  const channels = [];
+  if (document.getElementById('mCh05').checked)
+    channels.push({ um:'0.5', limit: Number(document.getElementById('mLim05').value)||null });
+  if (document.getElementById('mCh50').checked)
+    channels.push({ um:'5.0', limit: Number(document.getElementById('mLim50').value)||null });
+  if (document.getElementById('mCh10').checked)
+    channels.push({ um:'10.0', limit: Number(document.getElementById('mLim10').value)||null });
+  if (document.getElementById('mChCustom').checked) {
+    const umVal = document.getElementById('mChCustomVal').value.trim();
+    if (!umVal) { alert('請填寫自訂粒徑數值'); return; }
+    channels.push({ um: umVal, limit: Number(document.getElementById('mLimCustom').value)||null });
+  }
+  if (channels.length === 0) { alert('請至少勾選一個量測粒徑'); return; }
   // Check key unique
   const allKeys = Object.values(zones).flat().map(z=>z.key);
   if (allKeys.includes(key)) { alert('此 Key 已存在，請使用不同的 Key'); return; }
   if (!zones[editFloorId]) zones[editFloorId] = [];
-  zones[editFloorId].push({key, name, icon, sub, excelSheet:sheet});
+  zones[editFloorId].push({key, name, icon, sub, excelSheet:sheet, channels});
   if (!points[key]) points[key] = [];
   saveLocal(); renderTree(); closeModal('modalZone');
 }
@@ -1070,6 +1199,20 @@ function openEditZone(zkey, fid) {
   document.getElementById('mEZoneSheet').value = z?.excelSheet||'';
   document.getElementById('mEZoneSub').value = z?.sub||'';
   document.getElementById('mEZoneIcon').value = z?.icon||'';
+  // 載入 channels（自動升級舊字串格式）
+  const ch = normalizeChannels(z?.channels);
+  const fixedUms = ['0.5','5.0','10.0'];
+  const chMap = {}; ch.forEach(c => { chMap[c.um] = c.limit; });
+  document.getElementById('mECh05').checked = '0.5' in chMap; document.getElementById('mELim05').value = chMap['0.5']||'10000';
+  document.getElementById('mECh50').checked = '5.0' in chMap; document.getElementById('mELim50').value = chMap['5.0']||'70';
+  document.getElementById('mECh10').checked = '10.0' in chMap; document.getElementById('mELim10').value = chMap['10.0']||'';
+  // 自訂粒徑（非 0.5/5.0/10.0 的）
+  const customCh = ch.find(c => !fixedUms.includes(c.um));
+  document.getElementById('mEChCustom').checked = !!customCh;
+  document.getElementById('mEChCustomVal').value = customCh?.um||'';
+  document.getElementById('mEChCustomVal').disabled = !customCh;
+  document.getElementById('mELimCustom').value = customCh?.limit||'';
+  document.getElementById('mELimCustom').disabled = !customCh;
   openModal('modalEditZone');
 }
 function confirmEditZone() {
@@ -1081,6 +1224,21 @@ function confirmEditZone() {
   z.excelSheet = document.getElementById('mEZoneSheet').value.trim();
   z.sub = document.getElementById('mEZoneSub').value.trim();
   z.icon = document.getElementById('mEZoneIcon').value.trim()||z.icon;
+  // 儲存 channels
+  const channels = [];
+  if (document.getElementById('mECh05').checked)
+    channels.push({ um:'0.5', limit: Number(document.getElementById('mELim05').value)||null });
+  if (document.getElementById('mECh50').checked)
+    channels.push({ um:'5.0', limit: Number(document.getElementById('mELim50').value)||null });
+  if (document.getElementById('mECh10').checked)
+    channels.push({ um:'10.0', limit: Number(document.getElementById('mELim10').value)||null });
+  if (document.getElementById('mEChCustom').checked) {
+    const umVal = document.getElementById('mEChCustomVal').value.trim();
+    if (!umVal) { alert('請填寫自訂粒徑數值'); return; }
+    channels.push({ um: umVal, limit: Number(document.getElementById('mELimCustom').value)||null });
+  }
+  if (channels.length === 0) { alert('請至少勾選一個量測粒徑'); return; }
+  z.channels = channels;
   // Handle key rename
   if (newKey && newKey !== editZoneKey) {
     z.key = newKey;
@@ -1107,19 +1265,53 @@ function confirmDeleteZone(zkey, fid) {
 }
 
 // ── EXPORT ───────────────────────────────
-function exportAll() {
-  // Build config matching main app expectations
+// 壓縮底圖：最大寬 1200px，JPEG 品質 0.78
+function compressImage(dataURL, maxW=1200, quality=0.78) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataURL); // 壓縮失敗保留原圖
+    img.src = dataURL;
+  });
+}
+
+// 舊版 channels（字串陣列）自動升級為物件格式
+function normalizeChannels(channels) {
+  if (!channels || channels.length === 0) return [{um:'0.5',limit:10000},{um:'5.0',limit:70}];
+  if (typeof channels[0] === 'string') {
+    // 舊格式：['0.5','5.0'] → 帶入預設 limit
+    const defaultLimits = {'0.5':10000,'5.0':70,'10.0':null};
+    return channels.map(um => ({ um, limit: defaultLimits[um]||null }));
+  }
+  return channels; // 已是新格式
+}
+
+async function exportAll() {
+  document.getElementById('exportJson').textContent = '⏳ 正在壓縮底圖，請稍候…';
+  openModal('modalExport');
+  // 壓縮所有底圖
+  const compressedImages = {};
+  for (const [k, dataURL] of Object.entries(images)) {
+    if (dataURL) compressedImages[k] = await compressImage(dataURL);
+  }
   const config = {
-    floors: floors.map(f => ({
-      id: f.id, name: f.name, icon: f.icon
-    })),
+    floors: floors.map(f => ({ id: f.id, name: f.name, icon: f.icon })),
     zones: {},
-    points: {}
+    points: {},
+    images: compressedImages
   };
   floors.forEach(f => {
     config.zones[f.id] = (zones[f.id]||[]).map(z => ({
       key: z.key, name: z.name, icon: z.icon||'📍',
-      sub: z.sub||'', excelSheet: z.excelSheet||''
+      sub: z.sub||'', excelSheet: z.excelSheet||'',
+      channels: normalizeChannels(z.channels)
     }));
   });
   Object.keys(points).forEach(k => {
@@ -1127,8 +1319,11 @@ function exportAll() {
       id: p.id, label: p.label, name: p.name, x: p.x, y: p.y
     }));
   });
-  document.getElementById('exportJson').textContent = JSON.stringify(config, null, 2);
-  openModal('modalExport');
+  const jsonStr = JSON.stringify(config, null, 2);
+  document.getElementById('exportJson').textContent = jsonStr;
+  // 顯示檔案大小
+  const kb = Math.round(new Blob([jsonStr]).size / 1024);
+  status(`✅ 已產生 JSON，大小約 ${kb} KB（含 ${Object.keys(compressedImages).length} 張底圖）`);
 }
 
 function copyExport() {
@@ -1211,11 +1406,30 @@ function doImport() {
   try {
     const d = JSON.parse(text);
     if (d.floors) { floors = d.floors; floors.forEach(f => { f.open = true; }); }
-    if (d.zones)  zones = d.zones;
+    if (d.zones) {
+      zones = d.zones;
+      // 升級舊版 channels（字串格式）為新版物件格式
+      Object.values(zones).forEach(zList => zList.forEach(z => {
+        z.channels = normalizeChannels(z.channels);
+      }));
+    }
     if (d.points) Object.assign(points, d.points);
+    // 還原底圖
+    if (d.images && typeof d.images === 'object') {
+      Object.entries(d.images).forEach(([k, dataURL]) => {
+        if (dataURL) {
+          images[k] = dataURL;
+          try { localStorage.setItem('cr_img_' + k, dataURL); } catch(e){}
+        }
+      });
+      status('✅ 匯入成功！' + floors.length + ' 樓層，' +
+        Object.values(zones).flat().length + ' 個區域，' +
+        Object.keys(d.images).length + ' 張底圖已還原');
+    } else {
+      status('✅ 匯入成功！' + floors.length + ' 樓層，' + Object.values(zones).flat().length + ' 個區域（無內嵌底圖）');
+    }
     saveLocal(); renderTree(); renderPtList(); redraw();
     closeModal('modalImport');
-    status('✅ 匯入成功！' + floors.length + ' 樓層，' + Object.values(zones).flat().length + ' 個區域');
   } catch(e) { alert('JSON 格式錯誤：' + e.message); }
 }
 
@@ -1231,6 +1445,14 @@ document.querySelectorAll('.overlay').forEach(el =>
 function status(msg) {
   document.getElementById('stMsg').textContent = msg;
   setTimeout(()=>document.getElementById('stMsg').textContent='', 4000);
+}
+
+// ── CUSTOM CHANNEL TOGGLE ────────────────
+function toggleCustomCh(prefix) {
+  const checked = document.getElementById(prefix + 'ChCustom').checked;
+  document.getElementById(prefix + 'ChCustomVal').disabled = !checked;
+  document.getElementById(prefix + 'LimCustom').disabled = !checked;
+  if (checked) document.getElementById(prefix + 'ChCustomVal').focus();
 }
 
 // ── INIT MODE ────────────────────────────
