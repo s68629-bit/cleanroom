@@ -2,8 +2,8 @@
 <!--
   ╔══════════════════════════════════════════════════╗
   ║  無塵室微粒子量測 APP                              ║
-  ║  Version : v4.1                                  ║
-  ║  Date    : 2026-04-22                            ║
+  ║  Version : v4.3                                  ║
+  ║  Date    : 2026-04-23                            ║
   ║  Author  : 東立材料股份有限公司 廠務部              ║
   ║  Repo    : github.com/s68629-bit/cleanroom       ║
   ║  Changes : 動態粒徑（channels）支援 10μm/自訂粒徑   ║
@@ -400,7 +400,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:10
   <div>
     <div class="app-title" id="appTitle">🏭 無塵室微粒子量測</div>
     <div class="app-date" id="appDate"></div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v4.1 · 2026-04-22</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px">v4.3 · 2026-04-23</div>
   </div>
   <div class="top-btns">
     <div class="icon-btn" onclick="switchNav('settings')" title="設定">⚙️</div>
@@ -1851,6 +1851,23 @@ async function submitAllRecords(){
     }))
   };
 
+  // 當天重複記錄提醒
+  if(gasUrl && done > 0) {
+    try {
+      const today = getMeasureDate();
+      const chk = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'getRecords', zoneKey: state.zoneKey, date: today, limit: 1 })
+      });
+      const chkResult = await chk.json();
+      if (chkResult.ok && chkResult.records && chkResult.records.length > 0) {
+        const go = confirm(`⚠️ 今日（${today}）此區域已有量測記錄。\n確定要再次儲存？（若為補測或異常重測請確認）`);
+        if (!go) return;
+      }
+    } catch(e) {} // 檢查失敗不阻擋提交
+  }
+
   if (!gasUrl) {
     // 沒填 GAS 網址，直接存本機
     state.allRecords.unshift({ ...payload, submitted: false, error: '未設定GAS網址' });
@@ -2011,33 +2028,30 @@ let batchSelected = new Set();  // 選取的 group index
 // 取得篩選日期範圍
 function getRecFilterRange() {
   const mode = document.getElementById('recFilterMode')?.value || 'month';
-  const now = new Date();
+  // 用台灣時區當下日期
+  const now = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Taipei'}));
   const y = now.getFullYear();
   const m = now.getMonth(); // 0-based
 
+  const fmt = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+
   if (mode === 'month') {
-    const from = new Date(y, m, 1).toISOString().split('T')[0];
-    const to   = new Date(y, m+1, 0).toISOString().split('T')[0];
-    return { from, to };
+    return { from: fmt(new Date(y, m, 1)), to: fmt(new Date(y, m+1, 0)) };
   }
   if (mode === 'last3') {
-    const from = new Date(y, m-2, 1).toISOString().split('T')[0];
-    const to   = new Date(y, m+1, 0).toISOString().split('T')[0];
-    return { from, to };
+    return { from: fmt(new Date(y, m-2, 1)), to: fmt(new Date(y, m+1, 0)) };
   }
   if (mode === 'quarter') {
-    const qStart = Math.floor(m / 3) * 3;
-    const from = new Date(y, qStart, 1).toISOString().split('T')[0];
-    const to   = new Date(y, qStart+3, 0).toISOString().split('T')[0];
-    return { from, to };
+    const qs = Math.floor(m / 3) * 3;
+    return { from: fmt(new Date(y, qs, 1)), to: fmt(new Date(y, qs+3, 0)) };
   }
   if (mode === 'custom') {
     const from = document.getElementById('recFromMonth')?.value;
     const to   = document.getElementById('recToMonth')?.value;
-    if (from && to) return {
-      from: from + '-01',
-      to: to + '-' + new Date(parseInt(to.split('-')[0]), parseInt(to.split('-')[1]), 0).getDate()
-    };
+    if (from && to) {
+      const [ty, tm] = to.split('-').map(Number);
+      return { from: from + '-01', to: fmt(new Date(ty, tm, 0)) };
+    }
   }
   return {}; // all
 }
@@ -2385,6 +2399,18 @@ function editGroup(gi) {
           padding:5px 12px;cursor:pointer;color:var(--txt2);font-family:var(--sans)">✕ 關閉</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:0 20px 16px">
+        <!-- 操作人員和備註（群組層級） -->
+        <div style="margin-bottom:16px;padding:10px 12px;background:var(--blue5);border-radius:8px;border:1px solid var(--blue4)">
+          <div style="font-size:12px;font-weight:700;color:var(--blue1);margin-bottom:8px">群組資訊</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">操作人員</div>
+              <input id="editOperator_${gi}" type="text" value="${g.operator||''}"
+                style="width:100%;background:var(--white);border:1.5px solid var(--border);
+                border-radius:6px;padding:6px 10px;font-size:14px;font-family:var(--sans);outline:none">
+            </div>
+          </div>
+        </div>
         ${g.points.map((p, pi) => {
           const lim = getLimits(g.zoneKey);
           const chs = lim.channels || [{um:'0.5',limit:lim.um05},{um:'5.0',limit:lim.um50}];
@@ -2404,6 +2430,13 @@ function editGroup(gi) {
             </div>
             <div style="display:flex;gap:8px;align-items:center">
               ${inputsHtml}
+            </div>
+            <div style="margin-top:6px">
+              <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">備註</div>
+              <input id="editRemark_${pi}" type="text" value="${(p.remark||'').replace(/"/g,'&quot;')}"
+                placeholder="（選填）"
+                style="width:100%;background:var(--white);border:1.5px solid var(--border);
+                border-radius:6px;padding:6px 10px;font-size:13px;font-family:var(--sans);outline:none">
             </div>
           </div>`;
         }).join('')}
@@ -2430,10 +2463,14 @@ async function saveEditGroup(gi) {
   const lim = getLimits(g.zoneKey);
   const chs = lim.channels || [{um:'0.5',limit:lim.um05},{um:'5.0',limit:lim.um50}];
 
+  // 讀取操作人員（群組層級，所有點位共用）
+  const newOperator = document.getElementById('editOperator_' + gi)?.value || '';
+
   for (let pi = 0; pi < g.points.length; pi++) {
     const p = g.points[pi];
     const newValues = {};
     let changed = false;
+
     for (const ch of chs) {
       const inputId = 'edit_' + ch.um.replace('.','_') + '_' + pi;
       const inp = document.getElementById(inputId);
@@ -2442,17 +2479,26 @@ async function saveEditGroup(gi) {
       const oldVal = p.values ? (p.values[ch.um]??'') : (ch.um==='0.5'?p.v05:p.v50);
       if (String(inp.value) !== String(oldVal)) changed = true;
     }
+
+    // 備註
+    const newRemark = document.getElementById('editRemark_' + pi)?.value || '';
+    if (newRemark !== (p.remark||'')) changed = true;
+    // 操作人員
+    if (newOperator !== (g.operator||'')) changed = true;
+
     if (!changed) continue;
 
-    // 向下相容：同時帶 v05/v50 給舊版 GAS
     try {
       const r = await fetch(getGasUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
-          action: 'updateRecord', rowNum: p.rowNum,
+          action: 'updateRecord',
+          rowNum: p.rowNum,
           values: newValues,
-          v05: newValues['0.5'], v50: newValues['5.0']
+          v05: newValues['0.5'], v50: newValues['5.0'],
+          remark: newRemark,
+          operator: newOperator,
         })
       });
       const result = await r.json();
@@ -2557,27 +2603,19 @@ function initChartPage() {
 // 取得管制圖的日期範圍
 function getChartRange() {
   const mode = document.getElementById('chartRange')?.value || 'month';
-  const now = new Date();
+  const now = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Taipei'}));
   const y = now.getFullYear();
   const m = now.getMonth();
+  const fmt = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   if (mode === 'month') {
-    return {
-      from: new Date(y, m, 1).toISOString().split('T')[0],
-      to:   new Date(y, m+1, 0).toISOString().split('T')[0]
-    };
+    return { from: fmt(new Date(y, m, 1)), to: fmt(new Date(y, m+1, 0)) };
   }
   if (mode === 'last3') {
-    return {
-      from: new Date(y, m-2, 1).toISOString().split('T')[0],
-      to:   new Date(y, m+1, 0).toISOString().split('T')[0]
-    };
+    return { from: fmt(new Date(y, m-2, 1)), to: fmt(new Date(y, m+1, 0)) };
   }
   if (mode === 'quarter') {
     const qs = Math.floor(m/3)*3;
-    return {
-      from: new Date(y, qs, 1).toISOString().split('T')[0],
-      to:   new Date(y, qs+3, 0).toISOString().split('T')[0]
-    };
+    return { from: fmt(new Date(y, qs, 1)), to: fmt(new Date(y, qs+3, 0)) };
   }
   return {};
 }
@@ -2645,16 +2683,24 @@ function buildChartHTML(zoneKey) {
 
   // 每個粒徑各產生一張圖
   const colors = ['#0066cc','#cc6600','#009944','#cc0044','#6600cc'];
+
+  // 建立點位標籤→名稱對照
+  const pointNameMap = {};
+  chartData.forEach(g => g.points.forEach(p => {
+    if (p.label && p.name) pointNameMap[p.label] = p.name;
+  }));
+
   wrap.innerHTML = channels.map((ch, ci) => {
-    const limit = ch.limit || 10000;
-    return buildSingleChart(ch.um + ' μm', allDates, allPoints, matrix, ch.um, limit, colors[ci % colors.length]);
+    const limit = ch.limit || null;
+    return buildSingleChart(ch.um + ' μm', allDates, allPoints, matrix, ch.um, limit, colors[ci % colors.length], pointNameMap);
   }).join('<div style="height:20px"></div>');
 }
 
-function buildSingleChart(title, dates, points, matrix, umKey, limit, color) {
-  // 計算每個日期每個測點的值（新格式用 values[um]，舊格式用 v05/v50）
+function buildSingleChart(title, dates, points, matrix, umKey, limit, color, pointNameMap) {
+  pointNameMap = pointNameMap || {};
   const series = points.map(pt => ({
     label: pt,
+    name: pointNameMap[pt] || '',
     values: dates.map(d => {
       const rec = matrix[d]?.[pt];
       if (!rec) return null;
@@ -2664,144 +2710,128 @@ function buildSingleChart(title, dates, points, matrix, umKey, limit, color) {
     remarks: dates.map(d => matrix[d]?.[pt]?.remark ?? '')
   }));
 
-  // SVG 折線圖
-  const W = 600, H = 180, PL = 50, PT = 20, PR = 20, PB = 40;
+  const W = 600, H = 200, PL = 55, PT = 20, PR = 20, PB = 40;
   const chartW = W - PL - PR;
   const chartH = H - PT - PB;
 
+  // Y 軸自動縮放（不強制包含 UCL）
   const allVals = series.flatMap(s => s.values).filter(v => v !== null && v !== undefined);
-  const maxVal = Math.max(...allVals, limit * 1.1);
-  const minVal = 0;
+  let maxVal, minVal;
+  if (allVals.length > 0) {
+    const dataMax = Math.max(...allVals);
+    const dataMin = Math.min(...allVals);
+    const range = dataMax - dataMin || dataMax || 1;
+    minVal = Math.max(0, dataMin - range * 0.2);
+    maxVal = dataMax + range * 0.3;
+    if (limit && limit <= maxVal * 2) maxVal = Math.max(maxVal, limit * 1.05);
+  } else {
+    minVal = 0; maxVal = limit || 100;
+  }
 
   const xStep = dates.length > 1 ? chartW / (dates.length - 1) : chartW / 2;
   const yScale = v => PT + chartH - (chartH * (v - minVal) / (maxVal - minVal));
   const xPos = i => PL + (dates.length > 1 ? i * xStep : chartW / 2);
 
-  // 顏色池
   const colors = ['#0066cc','#cc6600','#009944','#cc0044','#6600cc','#cc9900','#006666','#cc3333','#336699','#669933'];
 
-  let svgLines = '';
-  let svgDots = '';
-
+  let svgLines = '', svgDots = '';
   series.forEach((s, si) => {
     const c = colors[si % colors.length];
     const pts = s.values.map((v, i) => v !== null ? `${xPos(i)},${yScale(v)}` : null).filter(Boolean);
-
-    // 折線
     if (pts.length > 1) {
-      svgLines += `<polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.8"/>`;
+      svgLines += `<polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.8" opacity="0.85"/>`;
     }
-
-    // 點（可 hover 顯示 tooltip）
     s.values.forEach((v, i) => {
       if (v === null) return;
-      const isOver = v > limit;
+      const isOver = limit && v > limit;
       const remark = s.remarks[i];
-      const tip = `${s.label}: ${v}${remark ? ' | 備註: ' + remark : ''}`;
+      const displayName = s.name ? s.label + ' ' + s.name : s.label;
+      const tip = `${displayName}: ${Number(v).toLocaleString()}${remark ? ' | 備註: '+remark : ''}`;
       svgDots += `<circle cx="${xPos(i)}" cy="${yScale(v)}" r="${isOver?5:3.5}"
-        fill="${isOver?'#cc0000':c}" stroke="white" stroke-width="1"
+        fill="${isOver?'#cc0000':c}" stroke="white" stroke-width="1.2"
         style="cursor:pointer" data-tip="${tip.replace(/"/g,'&quot;')}"
         onmouseenter="showTip(event,this.getAttribute('data-tip'))"
         onmouseleave="hideTip()"/>`;
     });
   });
 
-  // 上限線
-  const limitY = yScale(limit);
-  const limitLine = `<line x1="${PL}" y1="${limitY}" x2="${W-PR}" y2="${limitY}"
-    stroke="#cc0000" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.8"/>
-    <text x="${W-PR+2}" y="${limitY+4}" font-size="9" fill="#cc0000">${limit}</text>`;
+  // 無上限不畫上限線
+  const limitLine = limit
+    ? (() => {
+        const ly = yScale(limit);
+        return `<line x1="${PL}" y1="${ly}" x2="${W-PR}" y2="${ly}"
+          stroke="#cc0000" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.8"/>
+          <text x="${W-PR+2}" y="${ly+4}" font-size="9" fill="#cc0000">${Number(limit).toLocaleString()}</text>`;
+      })()
+    : '';
 
-  // X 軸標籤（日期）
-  const xLabels = dates.map((d, i) => {
-    const md = d.slice(5); // mm-dd
-    return `<text x="${xPos(i)}" y="${H-5}" text-anchor="middle" font-size="9" fill="#666">${md}</text>`;
-  }  ).join('\r\n');
+  const xLabels = dates.map((d, i) =>
+    `<text x="${xPos(i)}" y="${H-5}" text-anchor="middle" font-size="9" fill="#666">${d.slice(5)}</text>`
+  ).join('');
 
-  // Y 軸標籤
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => {
-    const val = Math.round(minVal + t * (maxVal - minVal));
+    const val = minVal + t * (maxVal - minVal);
     const y = PT + chartH * (1 - t);
-    return `<text x="${PL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="#888">${val >= 1000 ? (val/1000).toFixed(0)+'K' : val}</text>
+    const label = val >= 10000 ? (val/1000).toFixed(0)+'K' : val >= 1000 ? (val/1000).toFixed(1)+'K' : Math.round(val);
+    return `<text x="${PL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="#888">${label}</text>
       <line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#eee" stroke-width="1"/>`;
-  }  ).join('\r\n');
+  }).join('');
 
   const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;overflow:visible">
-    ${yTicks}
-    ${svgLines}
-    ${limitLine}
-    ${svgDots}
-    ${xLabels}
+    ${yTicks}${svgLines}${limitLine}${svgDots}${xLabels}
     <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+chartH}" stroke="#ccc" stroke-width="1"/>
     <line x1="${PL}" y1="${PT+chartH}" x2="${W-PR}" y2="${PT+chartH}" stroke="#ccc" stroke-width="1"/>
   </svg>`;
 
-  // 圖例
+  // 圖例加點位全名
   const legend = series.map((s, si) => {
     const c = colors[si % colors.length];
-    return `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px;color:var(--txt2)">
-      <span style="width:12px;height:3px;background:${c};border-radius:2px;display:inline-block"></span>
-      ${s.label}
-    </span>`;
-  }  ).join('\r\n');
+    const displayName = s.name ? `${s.label} ${s.name}` : s.label;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;margin-bottom:4px;font-size:11px;color:var(--txt2)">
+      <span style="width:14px;height:3px;background:${c};border-radius:2px;display:inline-block;flex-shrink:0"></span>
+      ${displayName}</span>`;
+  }).join('');
 
-  // 資料表格
   const tableRows = points.map(pt => {
+    const ptName = pointNameMap[pt] || '';
     const cells = dates.map(d => {
       const rec = matrix[d]?.[pt];
       const v = rec ? (rec.values ? rec.values[umKey] : (umKey==='0.5'?rec.v05:rec.v50)) : null;
       const remark = rec?.remark || '';
-      const isOver = v !== null && v !== undefined && v !== '' && Number(v) > limit;
-      const tip = remark ? ` title="${remark.replace(/"/g,'&quot;')}"` : '';
-      const style = isOver
-        ? 'background:#ffeeee;color:#cc0000;font-weight:700'
-        : 'color:var(--txt)';
-      return `<td${tip} style="padding:5px 8px;text-align:center;font-family:var(--mono);
-        font-size:12px;border-bottom:1px solid var(--blue4);${style};cursor:${remark?'help':'default'};
-        position:relative"
-        ${remark?`onmouseenter="showTip(event,'備註：${remark.replace(/'/g,"&#39;")}')" onmouseleave="hideTip()"`:''}>
-        ${v !== null && v !== undefined && v !== '' ? v : '—'}${remark?'<sup style="color:var(--acc);font-size:9px">●</sup>':''}
+      const isOver = limit && v !== null && v !== undefined && v !== '' && Number(v) > limit;
+      const style = isOver ? 'background:#ffeeee;color:#cc0000;font-weight:700' : 'color:var(--txt)';
+      return `<td style="padding:5px 8px;text-align:center;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--blue4);${style};cursor:${remark?'help':'default'}"
+        ${remark?`onmouseenter="showTip(event,'備註：${remark.replace(/'/g,"&#39;")}') " onmouseleave="hideTip()"`:''}>
+        ${v !== null && v !== undefined && v !== '' ? Number(v).toLocaleString() : '—'}${remark?'<sup style="color:var(--acc);font-size:9px">●</sup>':''}
       </td>`;
-    }  ).join('\r\n');
+    }).join('');
     return `<tr>
-      <td style="padding:5px 8px;font-size:12px;color:var(--txt2);border-bottom:1px solid var(--blue4);
-        white-space:nowrap;font-weight:600">${pt}</td>
-      ${cells}
-    </tr>`;
-  }  ).join('\r\n');
+      <td style="padding:5px 8px;font-size:12px;color:var(--txt2);border-bottom:1px solid var(--blue4);white-space:nowrap;font-weight:600">
+        ${pt}${ptName ? ' <span style="font-weight:400;color:var(--txt3)">'+ptName+'</span>' : ''}</td>${cells}</tr>`;
+  }).join('');
 
   const dateHeaders = dates.map(d =>
-    `<th style="padding:5px 8px;font-size:11px;font-weight:600;color:var(--acc);
-      white-space:nowrap;min-width:50px">${d.slice(5)}</th>`
-    ).join('\r\n');
+    `<th style="padding:5px 8px;font-size:11px;font-weight:600;color:var(--acc);white-space:nowrap;min-width:50px">${d.slice(5)}</th>`
+  ).join('');
 
-  return `<div style="margin-bottom:16px;background:var(--white);border:2px solid var(--border);
-    border-radius:10px;overflow:hidden;box-shadow:var(--shadow)">
-    <!-- 標題 -->
-    <div style="padding:10px 14px;background:var(--blue5);border-bottom:1px solid var(--blue4);
-      display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:14px;font-weight:700;color:var(--blue1)">■ ${title} 管制圖</div>
-      <div style="font-size:11px;color:var(--red)">── 上限：${limit}</div>
-    </div>
-    <!-- 折線圖 -->
+  const limitInfo = limit
+    ? `<div style="font-size:11px;color:var(--red)">── 上限：${Number(limit).toLocaleString()}</div>`
+    : `<div style="font-size:11px;color:var(--txt3)">（無管制上限）</div>`;
+
+  return `<div style="margin-bottom:16px;background:var(--white);border:2px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)">
+    <div style="padding:10px 14px;background:var(--blue5);border-bottom:1px solid var(--blue4);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--blue1)">■ ${title} 管制圖</div>${limitInfo}</div>
     <div style="padding:12px 14px 4px;overflow-x:auto">${svg}</div>
-    <!-- 圖例 -->
-    <div style="padding:4px 14px 8px;overflow-x:auto">${legend}</div>
-    <!-- 資料表格 -->
+    <div style="padding:4px 14px 8px;overflow-x:auto;display:flex;flex-wrap:wrap">${legend}</div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:300px">
-        <thead>
-          <tr style="background:var(--bg)">
-            <th style="padding:5px 8px;font-size:11px;font-weight:600;color:var(--txt2);text-align:left">測點</th>
-            ${dateHeaders}
-          </tr>
-        </thead>
+        <thead><tr style="background:var(--bg)">
+          <th style="padding:5px 8px;font-size:11px;font-weight:600;color:var(--txt2);text-align:left">測點</th>
+          ${dateHeaders}</tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
     </div>
-    <div style="padding:6px 14px;font-size:10px;color:var(--txt3)">
-      超標以紅色標示，有備註的數值右上角顯示 ●，移入可查看備註內容
-    </div>
+    <div style="padding:6px 14px;font-size:10px;color:var(--txt3)">超標以紅色標示，有備註的數值右上角顯示 ●，移入可查看備註內容</div>
   </div>`;
 }
 
